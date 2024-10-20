@@ -430,7 +430,7 @@ function drawGame(hostname, port) {
             //Sidebars has to be dynamically added if in the future you want >2 players
             const sidebars = [document.getElementById('bot-sidebar-one'), document.getElementById('bot-sidebar-two')];
             //Possibly add more colours for >2 players too
-            const colors = ['blue', 'red'];
+            const colors = ['blue', 'red', 'green', 'yellow', 'purple', 'orange', 'pink'];
 
             //Updates the bot's position and its job?
             function updateBot(botUpdate, playerId) {
@@ -580,7 +580,7 @@ function drawGame(hostname, port) {
 
 
                 // Player names code: 
-                var playerInfo = await fetchPlayerNames(gameId, [player_id]);
+                let playerInfo = await fetchPlayerNames(gameId, [player_id]);
                 console.log(playerInfo);
                 // var name = playerInfo[0].name;
 
@@ -597,33 +597,40 @@ function drawGame(hostname, port) {
                 const header = document.createElement('h4');
                 header.textContent = `Player: ${player_id}`;
                 header.style.color = color;
+                header.style.fontSize = "0.8vw"; 
+                header.style.margin = "0vw";
+                header.style.padding = "0.05vw";
                 sidebar.appendChild(header);
 
+                const botBox = document.createElement('div');
+                botBox.style = "display: flex; gap: 0vw; padding: 0vw, margin: 0.1vw; height: 100%; width: 100%; overflow-y: auto";
+                sidebar.appendChild(botBox);
                 for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of botMap.entries()) {
                     if (playerIndex == botPlayerIndex) { //THIS MIGHT NOT WORK
                         const botDiv = document.createElement('div');
                         console.log('cargo: ', cargo);
                         botDiv.classList.add('bot-info');
-
+                        botDiv.style = "width: 14%, height: 24%";
                         botDiv.innerHTML = `
-                <h4 style="margin: 2px 0; padding: 0;"><b>Bot ID:</b> ${variant}, ${id}</h4>
+                <h4 style="margin: 2px 0; padding: 0;"><b>${variant}</b> ${id}</h4>
                 <hr style="margin: 2px 0;">
-                <p style="margin: 2px 0; padding: 0;"><b>Position:</b> (${position.x}, ${position.y})</p>
+                <p style="margin: 2px 0; padding: 0;"><b>Position:</b> ${position.x}, ${position.y}</p>
                 <p style="margin: 2px 0; padding: 0;"><b>Energy:</b> ${current_energy}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Job Info:</b> ${job.action}, ${job.status}</p>
+                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${job.action}</p> 
                 <hr style="margin: 2px 0;">
             `;
-
+// , ${job.status}
                         const cargoContainer = document.createElement('div');
 
                         //Creating a grid: left side will be image of mineral, right side will be count of mineral
-                        cargoContainer.style = "display: grid; grid-template-columns: auto auto; grid-gap: 0.5vw; padding: 0.5vw"
+                        cargoContainer.style = "display: grid; grid-template-columns: auto auto; grid-gap: 0.05vw; padding: 0.1vw"
 
                         // Add each cargo item as a new paragraph
                         cargo.forEach(item => {
                             //Image of the mineral
                             let mineralImage = document.createElement('img')
                             mineralImage.src = "./assets/" + String(resources[item.id]) + ".png"
+                            mineralImage.style = "width: 1vw; height: 1vw"
                             cargoContainer.appendChild(mineralImage);
 
                             //Text describing how much of the mineral there is
@@ -636,7 +643,7 @@ function drawGame(hostname, port) {
                         botDiv.appendChild(cargoContainer);
 
                         // Append the botDiv to the sidebar
-                        sidebar.appendChild(botDiv);
+                        botBox.appendChild(botDiv);
                     }
                 }
             }
