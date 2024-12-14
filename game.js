@@ -542,8 +542,7 @@ function drawGame(hostname, port) {
                 winnerDiv.style.backgroundColor = 'white';
                 winnerDiv.style.border = '2px solid silver';
                 winnerDiv.style.borderTop = '40px solid silver';
-                winnerDiv.style.borderTopLeftRadius="5px";
-                winnerDiv.style.borderTopRightRadius="5px";
+                winnerDiv.style.borderRadius="5px";
                 winnerDiv.style.zIndex = '1000';
                 winnerDiv.innerHTML = `<h1>Player ${playerId} Won!</h1>`;
 
