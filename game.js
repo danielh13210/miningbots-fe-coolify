@@ -546,6 +546,15 @@ function drawGame(hostname, port) {
                 winnerDiv.style.zIndex = '1000';
                 winnerDiv.innerHTML = `<h1>Player ${playerId} Won!</h1>`;
 
+                const coverBoard = document.createElement('div');
+                coverBoard.style.position='fixed';
+                coverBoard.style.top='0';
+                coverBoard.style.left='0';
+                coverBoard.style.backgroundColor='transparent';
+                coverBoard.style.width="100vw";
+                coverBoard.style.height="100vh";
+
+
                 const closeButton = document.createElement('button');
                 const x = document.createElement('p');
                 x.innerHTML="x";
@@ -561,6 +570,7 @@ function drawGame(hostname, port) {
                 closeButton.style.border="none";
                 closeButton.addEventListener('click', () => {
                     document.body.removeChild(winnerDiv);
+                    document.body.removeChild(coverBoard);
                 });
 
                 const dialogTitle=document.createElement("h3");
@@ -573,6 +583,7 @@ function drawGame(hostname, port) {
 
                 winnerDiv.appendChild(closeButton);
                 winnerDiv.appendChild(dialogTitle);
+                document.body.appendChild(coverBoard);
                 document.body.appendChild(winnerDiv);
             }
 
