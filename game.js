@@ -533,6 +533,7 @@ function drawGame(hostname, port) {
 
             //Just the win screen
             function showWinner(playerId) {
+                //create the winner box
                 const winnerDiv = document.createElement('div');
                 winnerDiv.style.position = 'absolute';
                 winnerDiv.style.top = '50%';
@@ -544,8 +545,10 @@ function drawGame(hostname, port) {
                 winnerDiv.style.borderTop = '40px solid silver';
                 winnerDiv.style.borderRadius="5px";
                 winnerDiv.style.zIndex = '1000';
+                //place the text in the box
                 winnerDiv.innerHTML = `<h1>Player ${playerId} Won!</h1>`;
 
+                //create the cover board to prevent clicking outside the winner box while it is open
                 const coverBoard = document.createElement('div');
                 coverBoard.style.position='fixed';
                 coverBoard.style.top='0';
@@ -555,6 +558,7 @@ function drawGame(hostname, port) {
                 coverBoard.style.height="100vh";
 
 
+                //create the close button
                 const closeButton = document.createElement('button');
                 const x = document.createElement('p');
                 x.innerHTML="x";
@@ -573,6 +577,7 @@ function drawGame(hostname, port) {
                     document.body.removeChild(coverBoard);
                 });
 
+                //create the dialog title
                 const dialogTitle=document.createElement("h3");
                 dialogTitle.innerText="Game Won";
                 dialogTitle.style.userSelect="none";
@@ -581,6 +586,7 @@ function drawGame(hostname, port) {
                 dialogTitle.style.left="50%";
                 dialogTitle.style.transform="translateX(-50%)";
 
+                //add the elements
                 winnerDiv.appendChild(closeButton);
                 winnerDiv.appendChild(dialogTitle);
                 document.body.appendChild(coverBoard);
