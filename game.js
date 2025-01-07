@@ -246,14 +246,20 @@ function drawGame(hostname, port) {
         .then(async result => {
             let map_config = await result.map_config;
             console.log('map_config:', map_config);
-            const screenWidth = window.innerWidth;
-            const screenHeight = window.innerHeight;
+            // rendring information
+
+            // browser window dimensions
+            var screenWidth = window.innerWidth;
+            var screenHeight = window.innerHeight;
+            // map dimensions
             const COLS = map_config.max_x;
             const ROWS = map_config.max_y;
             const MAX_WHITE_WIDTH = 60;
             const MAX_WHITE_HEIGHT = 60;
             const borderWidth = 1;
-            const GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
+            var GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
+            //Possibly add more colours for >2 players too
+            const colors = ['blue', 'red'];
 
             console.log(COLS);
 
@@ -261,12 +267,18 @@ function drawGame(hostname, port) {
             canvas.width = COLS * GRID_SIZE;
             canvas.height = ROWS * GRID_SIZE;
 
-            //Since final canvas dimensions are known, resize the container that holds canvas and DIV for bot-info DIVs
-            //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
-            document.getElementById("game-info-container").style = "display: grid; grid-template-columns: " + canvas.width + "px " + (screenWidth - canvas.width) + "px"
-
-            //Allows the bot-info container to take up as much remaining space as possible (on the right; not any space of game canvas)
-            document.getElementById("bot-info-megacontainer").style.width = screenWidth - canvas.width + "px"
+            updateSidebarDimensions();
+            window.addEventListener("resize",(e)=>{
+                // browser window dimensions
+                screenWidth = window.innerWidth;
+                screenHeight = window.innerHeight;
+                GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
+                // Update canvas dimensions
+                canvas.width = COLS * GRID_SIZE;
+                canvas.height = ROWS * GRID_SIZE;
+                updateSidebarDimensions();
+                render(); // refresh the canvas
+            });
 
             let resource_configs = map_config.resource_configs;
 
@@ -295,7 +307,16 @@ function drawGame(hostname, port) {
             });
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
-            let terrains = Array.from({ length: ROWS }, () => Array(COLS).fill(terrainImages.unknown)); //all squares are unknown at teh start
+            let terrains = Array.from({ length: ROWS }, () => Array(COLS).fill(terrainImages.unknown)); //all squares are unknown at the start
+
+            function updateSidebarDimensions() {
+                //Since final canvas dimensions are known, resize the container that holds canvas and DIV for bot-info DIVs
+                //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
+                document.getElementById("game-info-container").style.gridTemplateColumns = canvas.width + "px " + (screenWidth - canvas.width) + "px";
+
+                //Allows the bot-info container to take up as much remaining space as possible (on the right; not any space of game canvas)
+                document.getElementById("bot-info-megacontainer").style.width = screenWidth - canvas.width + "px";
+            }
 
             function drawASquare(c, r, background, image) {
                 ctx.drawImage(background, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
@@ -429,8 +450,6 @@ function drawGame(hostname, port) {
 
             //Sidebars has to be dynamically added if in the future you want >2 players
             const sidebars = [document.getElementById('bot-sidebar-one'), document.getElementById('bot-sidebar-two')];
-            //Possibly add more colours for >2 players too
-            const colors = ['blue', 'red', 'green', 'yellow', 'purple', 'orange', 'pink'];
 
             //Updates the bot's position and its job?
             function updateBot(botUpdate, playerId) {
