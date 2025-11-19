@@ -1,5 +1,5 @@
 services:
-  miningbots-server:
+  miningbots-frontend-server:
     image: miningbots-frontend-server
     container_name: miningbots-frontend-server
     ports:
