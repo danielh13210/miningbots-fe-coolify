@@ -10,10 +10,10 @@ RUN cat ./htdocs/apache-docker-config/httpd.conf >> ./conf/httpd.conf && \
    rm -rf ./htdocs/apache-docker-config && \
     echo "<Directory \"$PWD/htdocs\">" >> ./conf/httpd.conf && \
     cat /usr/local/apache2/htdocs/.htaccess >> ./conf/httpd.conf && \
-    rm ./htdocs/.htaccess && \
+    rm -f ./htdocs/.htaccess && \
     echo "</Directory>" >> ./conf/httpd.conf
 RUN cd htdocs && \
-    rm Dockerfile
+    rm -f Dockerfile
 
 # Expose port 80 for HTTP traffic
 EXPOSE 80
