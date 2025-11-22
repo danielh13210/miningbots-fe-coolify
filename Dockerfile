@@ -8,10 +8,7 @@ RUN cat ./htdocs/apache-docker-config/httpd.conf >> ./conf/httpd.conf && \
     # add two newlines
     echo -en "\n\n" >> ./conf/httpd.conf && \
    rm -rf ./htdocs/apache-docker-config && \
-    echo "<Directory \"$PWD/htdocs\">" >> ./conf/httpd.conf && \
-    cat /usr/local/apache2/htdocs/.htaccess >> ./conf/httpd.conf && \
-    rm -f ./htdocs/.htaccess && \
-    echo "</Directory>" >> ./conf/httpd.conf
+    for dir in $(find /usr/local/apache2/htdocs -name .htaccess -exec dirname {} \;); do echo "<Directory \"$dir\">" && cat "$dir/.htaccess" && rm "$dir/.htaccess" && echo -e "</Directory>\n"; done >> ./conf/httpd.conf
 RUN cd htdocs && \
     rm -f Dockerfile
 
