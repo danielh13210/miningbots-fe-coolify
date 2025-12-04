@@ -1,5 +1,5 @@
-# Use the official Apache HTTPD image, based on Debian Trixie Slim
-FROM httpd:2.4-trixie
+# Use the official Apache HTTPD image
+FROM httpd:2.4-alpine
 
 # Copy your website files into the default Apache document root
 WORKDIR /usr/local/apache2/
