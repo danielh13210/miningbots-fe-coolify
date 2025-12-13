@@ -257,8 +257,7 @@ function drawGame(hostname, port) {
             const MAX_WHITE_WIDTH = 60;
             const MAX_WHITE_HEIGHT = 60;
             const borderWidth = 1;
-            var GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
-            //Possibly add more colours for >2 players too
+            updateDimensions(true); //Possibly add more colours for >2 players too
             const colors = ['blue', 'red'];
 
             console.log(COLS);
