@@ -1,5 +1,5 @@
 function showDialog_(html,title,buttons){
-//create the winner box
+    //create the dialog box
     const dialog = document.createElement('div');
     dialog.style.position = 'fixed';
     dialog.style.top = '50%';
