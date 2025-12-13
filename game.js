@@ -531,66 +531,10 @@ function drawGame(hostname, port) {
                 })
             }
 
-            //Just the win screen
+            //Display a dialog box in the middle of the screen indicating the winner
             function showWinner(playerId) {
-                //create the winner box
-                const winnerDiv = document.createElement('div');
-                winnerDiv.style.position = 'absolute';
-                winnerDiv.style.top = '50%';
-                winnerDiv.style.left = '50%';
-                winnerDiv.style.transform = 'translate(-50%, -50%)';
-                winnerDiv.style.padding = '20px';
-                winnerDiv.style.backgroundColor = 'white';
-                winnerDiv.style.border = '2px solid silver';
-                winnerDiv.style.borderTop = '40px solid silver';
-                winnerDiv.style.borderRadius="5px";
-                winnerDiv.style.zIndex = '1000';
-                //place the text in the box
-                winnerDiv.innerHTML = `<h1>Player ${playerId} Won!</h1>`;
-
-                //create the cover board to prevent clicking outside the winner box while it is open
-                const coverBoard = document.createElement('div');
-                coverBoard.style.position='fixed';
-                coverBoard.style.top='0';
-                coverBoard.style.left='0';
-                coverBoard.style.backgroundColor='transparent';
-                coverBoard.style.width="100vw";
-                coverBoard.style.height="100vh";
-
-
-                //create the close button
-                const closeButton = document.createElement('button');
-                const x = document.createElement('p');
-                x.innerHTML="x";
-                x.style.top="-4px";
-                x.style.position="relative";
-                closeButton.appendChild(x);
-                closeButton.style.position = 'absolute';
-                closeButton.style.top = `-30px`;
-                closeButton.style.left = '3px';
-                closeButton.style.width=closeButton.style.height="20px";
-                closeButton.style.backgroundColor="red";
-                closeButton.style.borderRadius="50%";
-                closeButton.style.border="none";
-                closeButton.addEventListener('click', () => {
-                    document.body.removeChild(winnerDiv);
-                    document.body.removeChild(coverBoard);
-                });
-
-                //create the dialog title
-                const dialogTitle=document.createElement("h3");
-                dialogTitle.innerText="Game Won";
-                dialogTitle.style.userSelect="none";
-                dialogTitle.style.position="absolute";
-                dialogTitle.style.top="-38px";
-                dialogTitle.style.left="50%";
-                dialogTitle.style.transform="translateX(-50%)";
-
-                //add the elements
-                winnerDiv.appendChild(closeButton);
-                winnerDiv.appendChild(dialogTitle);
-                document.body.appendChild(coverBoard);
-                document.body.appendChild(winnerDiv);
+                let text = `<h1>Player ${playerId} Won!</h1>`;
+                showDialog(text,"We have a winner!");
             }
 
             function renderBots() {
