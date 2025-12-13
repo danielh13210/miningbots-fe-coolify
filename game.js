@@ -174,7 +174,7 @@ function drawGame(hostname, port) {
     const ctx = canvas.getContext("2d");
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
-    const GRID_SIZE = 32;
+    var GRID_SIZE;
     const images = {
         kFactoryBot: new Image(),
         kMiningBot: new Image(),
@@ -257,17 +257,20 @@ function drawGame(hostname, port) {
             const MAX_WHITE_WIDTH = 60;
             const MAX_WHITE_HEIGHT = 60;
             const borderWidth = 1;
-            updateDimensions(true); //Possibly add more colours for >2 players too
+            updateDimensions(true); 
+            //Possibly add more colours for >2 players too
             const colors = ['blue', 'red'];
 
-            console.log(COLS);
+            let resizeTimeout = null;
+            window.addEventListener("resize",(_e)=>{
+                if(resizeTimeout) clearTimeout(resizeTimeout); // clear the timeout if it exists
+                resizeTimeout = setTimeout(()=>{
+                    updateDimensions();
+                    resizeTimeout=null;
+                },100);
+            });
 
-            // Update canvas dimensions
-            canvas.width = COLS * GRID_SIZE;
-            canvas.height = ROWS * GRID_SIZE;
-
-            updateSidebarDimensions();
-            window.addEventListener("resize",(e)=>{
+            function updateDimensions(lazy_render) {
                 // browser window dimensions
                 screenWidth = window.innerWidth;
                 screenHeight = window.innerHeight;
@@ -275,9 +278,10 @@ function drawGame(hostname, port) {
                 // Update canvas dimensions
                 canvas.width = COLS * GRID_SIZE;
                 canvas.height = ROWS * GRID_SIZE;
+                
                 updateSidebarDimensions();
-                render(); // refresh the canvas
-            });
+                if(!lazy_render) render();
+            }
 
             let resource_configs = map_config.resource_configs;
 
