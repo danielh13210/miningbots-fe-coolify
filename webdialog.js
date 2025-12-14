@@ -1,77 +1,78 @@
-function showDialog_(html,title,buttons){
+function getTextWidth_(text, font) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    context.font = font; // Set the font style
+    const metrics = context.measureText(text);
+    return metrics.width; // Return the width of the text
+}
+
+let dialog_showing_=false;
+let active_dialog_=null;
+let upcoming_dialogs_=[];
+function showDialog_(html,title,buttons,onClose,submitButton,hasSVGFiles){
+    // Queue upcoming dialogs if one is already showing
+    if(dialog_showing_){
+        upcoming_dialogs_.push({"html":html, "title":title, "button":buttons});
+        return;
+    }
     //create the dialog box
     const dialog = document.createElement('div');
-    dialog.style.position = 'fixed';
-    dialog.style.top = '50%';
-    dialog.style.left = '50%';
-    dialog.style.transform = 'translate(-50%, -50%)';
-    dialog.style.padding = '20px';
-    dialog.style.backgroundColor = 'white';
-    dialog.style.border = '2px solid silver';
-    dialog.style.borderTop = '40px solid silver';
-    dialog.style.borderRadius="5px";
-    dialog.style.zIndex = '1000';
-    dialog.style.minWidth="200px";
+    dialog.classList.add('dialog');
+    dialog.style.display="none";
+    setTimeout(()=>{dialog.style.display="";},500);
 
     //place the text in the box
     dialog.innerHTML=html?html:"";
 
-    //create the cover board to prevent clicking outside the winner box while it is open
+    //create the cover board to prevent clicking outside the dialog box while it is open
     const coverBoard = document.createElement('div');
-    coverBoard.style.position='fixed';
-    coverBoard.style.top='0';
-    coverBoard.style.left='0';
-    coverBoard.style.backgroundColor='transparent';
-    coverBoard.style.width="100vw";
-    coverBoard.style.height="100vh";
-
+    coverBoard.classList.add('dialog-modal-coverboard');
 
     //create the close button
     const closeButton = document.createElement('button');
+    closeButton.classList.add("dialog-close");
     const x = document.createElement('p');
+    x.classList.add("dialog-xbutton");
     x.innerHTML="x";
-    x.style.top="-4px";
-    x.style.position="relative";
-    x.style.filter="invert(100%)"; // don't invert the X button; it makes it hard to see
     closeButton.appendChild(x);
-    closeButton.style.position = 'absolute';
-    closeButton.style.top = `-30px`;
-    closeButton.style.left = '3px';
-    closeButton.style.width=closeButton.style.height="20px";
-    closeButton.style.backgroundColor="red";
-    closeButton.style.borderRadius="50%";
-    closeButton.style.border="none";
     let overflow_prev=document.body.style.overflow;
-    function close_dialog(){
+    function close_dialog(callOnClose=false){ 
         document.body.removeChild(dialog);
         document.body.removeChild(coverBoard);
         document.body.style.overflow=overflow_prev;
+        dialog_showing_=false;
+        if(callOnClose)
+            onClose();
+        // If there are more dialogs queued, show the next one
+        if(upcoming_dialogs_.length>0){
+            let next_dialog=upcoming_dialogs_.shift();
+            showDialog_(next_dialog["html"],next_dialog["title"],next_dialog["buttons"]);
+        }
     }
-    closeButton.addEventListener('click',close_dialog);
+    closeButton.addEventListener('click',()=>{close_dialog(true);});
 
     //create the dialog title
     const dialogTitle=document.createElement("h3");
-    dialogTitle.innerText=(typeof title == "string")?title:"[In-page dialog]";
-    dialogTitle.style.userSelect="none";
-    dialogTitle.style.position="absolute";
-    dialogTitle.style.top="-38px";
-    dialogTitle.style.left="50%";
-    dialogTitle.style.transform="translateX(-50%)";
+    title=(typeof title == "string")?title:"[In-page dialog]"
+    dialogTitle.innerText=title;
+    dialogTitle.classList.add("dialog-title");
+
+    // set dialog width
+    dialog.style.minWidth=`${getTextWidth_(title,"500 1.75rem Arial")+222}px`;
 
     //create the button box
+    let buttonBoxContainer=document.createElement("div");
+    buttonBoxContainer.classList.add("dialog-buttonbox-container");
     let buttonBox=document.createElement("div");
-    buttonBox.style.display="flex";
-    buttonBox.style.justifyContent="center";
-    buttonBox.style.width="100%";
+    buttonBox.classList.add("dialog-buttonbox");
     if(typeof buttons!="object"){
         buttons=[{"text":"OK","action":"close_dialog"}];
     }
     buttons.forEach(button_descriptor => {
         let button=document.createElement("button");
-        button.innerHTML=button_descriptor["text"];
-        button.style.marginLeft="3px";
-        button.style.marginRight="3px";
-        let action=button_descriptor["action"];
+        button.classList.add("dialog-button");
+        button.innerHTML=button_descriptor.text;
+        let action=button_descriptor.action;
         if (typeof action!="function"){
             action=()=>true;
         }
@@ -83,12 +84,21 @@ function showDialog_(html,title,buttons){
     });
 
     //add the elements
-    dialog.appendChild(buttonBox);
+    buttonBoxContainer.appendChild(buttonBox);
+    dialog.appendChild(buttonBoxContainer);
     dialog.appendChild(closeButton);
     dialog.appendChild(dialogTitle);
     document.body.appendChild(coverBoard);
     document.body.appendChild(dialog);
     document.body.style.overflow="hidden";
+    if(hasSVGFiles)
+        SVGImporter.reimport();
+    dialog_showing_=true;
+    active_dialog_ = {
+        submitButton: submitButton,
+        close: close_dialog
+    };
+    return active_dialog_;
 }
 
 function showDialog(html,title,buttons){
@@ -107,3 +117,9 @@ function showDialog(html,title,buttons){
     cleanHTML=tempDiv.innerHTML;
     showDialog_(cleanHTML,title,buttons);
 }
+
+document.addEventListener("DOMContentLoaded",()=>{
+    document.head.innerHTML+=`
+    <link href="/styles/dialog.css" rel="stylesheet" />
+    `
+});
