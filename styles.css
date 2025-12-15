@@ -52,3 +52,8 @@ body {
 .navbar {
   padding-left: 1%;
 }
+
+.navbar-brand-logo {
+  margin-right: 10px;
+  height: 30px;
+}
