@@ -655,5 +655,5 @@ function drawGame(hostname, port) {
         });
 }
 console.log(servers["localhost"].name);
-document.getElementById("navbarDropdownMenuLink").textContent = hostname !== null ? servers[hostname].name : "Choose a server";
+setServerName(hostname !== null ? servers[hostname].name : "Choose a server");
 drawGame(hostname, port);
