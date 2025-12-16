@@ -101,21 +101,24 @@ function showDialog_(html,title,buttons,onClose,submitButton,hasSVGFiles){
     return active_dialog_;
 }
 
-function showDialog(html,title,buttons){
-    //ensure security
-    let cleanHTML=DOMPurify.sanitize(html,{
-        ALLOWED_TAGS:['h1', 'h2', 'h3', 'h4', 'h5', 'h6','p','b','i','em','strong','br','img'],
-        ALLOWED_ATTR:['src','id','class','style']
-    });
-    let tempDiv=document.createElement("div");
-    tempDiv.innerHTML=cleanHTML;
-    Array.from(tempDiv.querySelectorAll('*')).forEach((elem)=>{
-        if(elem.tagName.toLowerCase()!=="img"){
-            elem.removeAttribute('src');
-        }
-    });
-    cleanHTML=tempDiv.innerHTML;
-    showDialog_(cleanHTML,title,buttons);
+
+export default {
+    showDialog: function showDialog(html,title,buttons){
+        //ensure security
+        let cleanHTML=DOMPurify.sanitize(html,{
+            ALLOWED_TAGS:['h1', 'h2', 'h3', 'h4', 'h5', 'h6','p','b','i','em','strong','br','img'],
+            ALLOWED_ATTR:['src','id','class','style']
+        });
+        let tempDiv=document.createElement("div");
+        tempDiv.innerHTML=cleanHTML;
+        Array.from(tempDiv.querySelectorAll('*')).forEach((elem)=>{
+            if(elem.tagName.toLowerCase()!=="img"){
+                elem.removeAttribute('src');
+            }
+        });
+        cleanHTML=tempDiv.innerHTML;
+        showDialog_(cleanHTML,title,buttons);
+    }
 }
 
 document.addEventListener("DOMContentLoaded",()=>{

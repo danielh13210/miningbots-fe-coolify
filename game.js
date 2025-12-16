@@ -1,3 +1,5 @@
+import DialogUtilities from './scripts/ui/webdialog.js';
+
 console.log("script started");
 
 // Get hostname from cookie, otherwise leave as null
@@ -534,7 +536,7 @@ function drawGame(hostname, port) {
             //Display a dialog box in the middle of the screen indicating the winner
             function showWinner(playerId) {
                 let text = `<h1>Player ${playerId} Won!</h1>`;
-                showDialog(text,"We have a winner!");
+                DialogUtilities.showDialog(text,"We have a winner!");
             }
 
             function renderBots() {
