@@ -8,7 +8,10 @@ export default {
             ?.split("=")[1];
     },
     setCookie: function (name, value, expiry, path = "/") {
-        document.cookie = `${name}=${value}; expires=${expiry.toUTCString()}; path=${path}`;
+        if(expiry instanceof Date) {
+            expiry = expiry.toUTCString();
+        }
+        document.cookie = `${name}=${value}; expires=${expiry}; path=${path}`;
     },
     deleteCookie: function (name, path = "/") {
         document.cookie = `${name}=; expires=${this.epoch.toUTCString()}; path=${path}`;
