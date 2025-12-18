@@ -1,4 +1,5 @@
 import CookieUtilities from './scripts/utilities/cookie.js';
+import SettingsManager from './scripts/settings.js';
 
 console.log("script started");
 
@@ -13,8 +14,15 @@ var port = 9003;
 // if (server !== null) hostname = server; 
 var gameId;
 
-var http_type = "http";
-var ws_type = "ws";
+const CONFIG_=SettingsManager.read_settings_cookie();
+
+if (CONFIG_.require_security){
+    var http_type = "https";
+    var ws_type = "wss";
+} else {
+    var http_type = "http"; 
+    var ws_type = "ws";
+}
 // var http_type = "https";
 // var ws_type = "wss";
 
@@ -111,11 +119,19 @@ var servers = {
     "miningbots-api.dev.tk.sg": {
         name: "miningbots-api.dev.tk.sg",
         url: "miningbots-api.dev.tk.sg",
+        require_security: true,
     },
 };
 
 // Variable to hold the selected server URL
 let selectedServerUrl = null;
+
+if(hostname && servers[hostname]){
+  if(servers[hostname].require_security) {
+    http_type = "https";
+    ws_type = "wss";
+  }
+}
 
 // Function to populate the dropdown menu
 function populateDropdown() {

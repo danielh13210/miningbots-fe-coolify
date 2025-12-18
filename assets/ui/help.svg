@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   fill="currentColor"
+   stroke="currentColor"
+   viewBox="0 0 640 640"
+   version="1.1"
+   sodipodi:docname="help.svg"
+   inkscape:version="1.4.2 (ebf0e940, 2025-05-08)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <inkscape:path-effect
+       effect="offset"
+       id="path-effect2"
+       is_visible="true"
+       lpeversion="1.3"
+       linejoin_type="miter"
+       unit="mm"
+       offset="-5.1"
+       miter_limit="4"
+       attempt_force_join="false"
+       update_on_knot_move="true" />
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.57153294"
+     inkscape:cx="-179.34225"
+     inkscape:cy="413.79942"
+     inkscape:window-width="1440"
+     inkscape:window-height="900"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg1"
+     showgrid="false" />
+  <!--!Font Awesome Free v7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+  <path
+     d="M 320 8.6660156 C 304.6 8.6660156 288.68119 13.67041 279 25.666016 L 81 271 C 71.318808 282.99561 64 296.6 64 312 C 64 327.4 71.685981 340.71713 81 353 L 279 614.11328 C 288.31402 626.39615 304.6 631.11328 320 631.11328 C 335.4 631.11328 351.68598 626.39615 361 614.11328 L 559 353 C 568.31402 340.71713 576 327.4 576 312 C 576 296.6 568.68119 282.99561 559 271 L 361 25.666016 C 351.31881 13.67041 335.4 8.6660156 320 8.6660156 z M 320 83.285156 C 397.98636 83.285156 460.71484 146.01364 460.71484 224 C 460.71484 286.91482 419.77126 339.76013 363.28906 357.94336 L 363.24219 357.95898 L 363.19531 357.97266 C 354.91573 360.68493 346.72206 365.68582 341.23047 371.72656 L 341.21875 371.73828 L 341.20898 371.74805 C 335.32045 378.24574 332.71484 384.98249 332.71484 392 L 332.71484 416 C 332.71484 423.31266 327.31266 428.71484 320 428.71484 C 312.68734 428.71484 307.28516 423.31266 307.28516 416 L 307.28516 392 C 307.28516 361.00433 333.03685 341.00586 355.44141 333.74805 C 401.92322 318.69565 435.28516 275.20056 435.28516 224 C 435.28516 160.32102 383.67898 108.71484 320 108.71484 C 256.32102 108.71484 204.71484 160.32102 204.71484 224 C 204.71484 231.31266 199.31266 236.71484 192 236.71484 C 184.68734 236.71484 179.28516 231.31266 179.28516 224 C 179.28516 146.01364 242.01364 83.285156 320 83.285156 z M 320 515.28516 C 331.68636 515.28516 340.71484 524.31364 340.71484 536 C 340.71484 547.68636 331.68636 556.71484 320 556.71484 C 308.31364 556.71484 299.28516 547.68636 299.28516 536 C 299.28516 524.31364 308.31364 515.28516 320 515.28516 z " />
+</svg>
