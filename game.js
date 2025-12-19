@@ -184,12 +184,7 @@ function drawGame(hostname, port) {
         adamantite: new Image(),
         unobtanium: new Image(),
     };
-    const terrainImages = {
-        unknown: new Image(),
-        grassland: new Image(),
-        hills: new Image(),
-        mountain: new Image()
-    };
+    let terrainImages={};
 
     //Assigns images
     images.kFactoryBot.src = 'assets/Factory_Bot.png';
@@ -199,11 +194,6 @@ function drawGame(hostname, port) {
     images.vibranium.src = 'assets/Vibranium.png';
     images.adamantite.src = 'assets/Adamantite.png';
     images.unobtanium.src = 'assets/Unobtanium.png';
-
-    terrainImages.unknown.src = 'assets/unknown.jpg';
-    terrainImages.grassland.src = 'assets/grassland.jpg';
-    terrainImages.hills.src = 'assets/hills.jpg';
-    terrainImages.mountain.src = 'assets/mountain.jpg';
 
     //Likely connecting to the server and retrieving initial game state
     fetch(`${http_type}://${hostname}:${port}/games`, {
@@ -292,6 +282,16 @@ function drawGame(hostname, port) {
             //Adds new game elements from resource_configs if they do not already exist
             resource_configs.forEach(resource => {
                 resources[Object.keys(resources).length] = resource.name;
+            });
+
+            function addTerrain(terrain_name){
+                terrainImages[terrain_name] = new Image();
+                terrainImages[terrain_name].src = 'assets/' + terrain_name + '.jpg';
+            }
+            //Adds new terrain images from terrain_configs
+            addTerrain('unknown'); //always have unknown terrain
+            map_config.terrain_configs.forEach(terrain => {
+                addTerrain(terrain.name.toLowerCase());
             });
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
@@ -478,7 +478,7 @@ function drawGame(hostname, port) {
             //Updates the state of a tile on the map
             function updateLand(data) {
                 const { position: { x, y }, is_traversable, resources, terrain_id } = data;
-                switch (terrain_id) {
+                /*switch (terrain_id) {
                     case 0:
                         terrains[ROWS - y - 1][x] = terrainImages.grassland;
                         break;
@@ -490,7 +490,12 @@ function drawGame(hostname, port) {
                         break;
                     default:
                         terrains[ROWS - y - 1][x] = terrainImages.unknown;
+                }*/
+                let terrain_name = 'unknown';
+                if(terrain_id < map_config.terrain_configs.length){
+                    terrain_name = map_config.terrain_configs[terrain_id].name.toLowerCase();
                 }
+                terrains[ROWS - y - 1][x] = terrainImages[terrain_name];
 
                 if (is_traversable) {
                     gameState[ROWS - y - 1][x] = elements.traversable;
