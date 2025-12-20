@@ -1,0 +1,12 @@
+.git
+.gitignore
+.dockerignore
+docker-compose.yml
+utilities
+webserver
+firefox-chrome
+.vscode
+.idea
+browsersettings.conf*
+init*.*
+README.md

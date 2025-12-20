@@ -1,0 +1,12 @@
+services:
+  miningbots-frontend-server:
+    image: miningbots-frontend-server
+    container_name: miningbots-frontend-server
+    ports:
+      - "80:80"
+    networks:
+      - miningbots-frontend
+
+networks:
+  miningbots-frontend:
+    driver: bridge
