@@ -403,7 +403,6 @@ function drawGame(hostname, port) {
                                             } else {
                                                 ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                                             }
-                                            break;
                                         }
                                     });
                                 } else {
