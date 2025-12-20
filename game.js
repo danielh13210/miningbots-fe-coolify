@@ -656,5 +656,5 @@ function drawGame(hostname, port) {
 console.log(servers["localhost"].name);
 if (hostname !== null) {
     setServerName(servers[hostname].name);
+    drawGame(hostname, port);
 }
-drawGame(hostname, port);
