@@ -237,6 +237,7 @@ function drawGame(hostname, port) {
             // rendring information
 
             // browser window dimensions
+            var GRID_SIZE;
             var screenWidth = window.innerWidth;
             var screenHeight = window.innerHeight;
             // map dimensions
@@ -255,7 +256,6 @@ function drawGame(hostname, port) {
                     resizeTimeout=null;
                 },100);
             });
-            const GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
             const BOT_START_IDX = 500; //starting index for bot elements in gameState array, to avoid clashing with other element indices. Arbitrary.
 
 
