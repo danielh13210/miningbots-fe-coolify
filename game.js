@@ -139,8 +139,7 @@ document.addEventListener("DOMContentLoaded", function () {
             selectedServerUrl = this.getAttribute("data-url");
             console.log(selectedServerUrl);
             let selectedServerName = this.textContent;
-            document.getElementById("navbarDropdownMenuLink").textContent =
-                selectedServerName;
+            setServerName(selectedServerName);
             // Save to cookie first
             document.cookie = `lastServer=${selectedServerUrl}`;
             location.reload();
