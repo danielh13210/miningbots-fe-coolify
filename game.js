@@ -113,7 +113,7 @@ var servers = {
 };
 
 if(server && servers[server]) {
-    url=servers[server].url;
+    let url=servers[server].url;
     if(url.indexOf(":")!=-1){
         hostname = hostname.split(":")[0];
         port = url.split(":")[1];
