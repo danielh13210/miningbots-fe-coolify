@@ -183,7 +183,7 @@ function drawGame(hostname, port) {
     const ctx = canvas.getContext("2d");
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
-    const GRID_SIZE = 32;
+    var GRID_SIZE;
     const images = {
         kFactoryBot: new Image(),
         kMiningBot: new Image(),
@@ -255,13 +255,27 @@ function drawGame(hostname, port) {
         .then(async result => {
             let map_config = await result.map_config;
             console.log('map_config:', map_config);
-            const screenWidth = window.innerWidth;
-            const screenHeight = window.innerHeight;
+            // rendring information
+
+            // browser window dimensions
+            var screenWidth = window.innerWidth;
+            var screenHeight = window.innerHeight;
+            // map dimensions
             const COLS = map_config.max_x;
             const ROWS = map_config.max_y;
             const MAX_WHITE_WIDTH = 60;
             const MAX_WHITE_HEIGHT = 60;
             const borderWidth = 1;
+            updateDimensions(true);
+
+            let resizeTimeout = null;
+            window.addEventListener("resize",(_e)=>{
+                if(resizeTimeout) clearTimeout(resizeTimeout); // clear the timeout if it exists
+                resizeTimeout = setTimeout(()=>{
+                    updateDimensions();
+                    resizeTimeout=null;
+                },100);
+            });
             const GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
             const BOT_START_IDX = 500; //starting index for bot elements in gameState array, to avoid clashing with other element indices. Arbitrary.
 
@@ -276,8 +290,18 @@ function drawGame(hostname, port) {
             //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
             document.getElementById("game-info-container").style = "display: grid; grid-template-columns: " + canvas.width + "px " + (screenWidth - canvas.width) + "px"
 
-            //Allows the bot-info container to take up as much remaining space as possible (on the right; not any space of game canvas)
-            document.getElementById("bot-info-megacontainer").style.width = screenWidth - canvas.width + "px"
+            function updateDimensions(lazy_render) {
+                // browser window dimensions
+                screenWidth = window.innerWidth;
+                screenHeight = window.innerHeight;
+                GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
+                // Update canvas dimensions
+                canvas.width = COLS * GRID_SIZE;
+                canvas.height = ROWS * GRID_SIZE;
+                
+                updateSidebarDimensions();
+                if(!lazy_render) render();
+            }
 
             let resource_configs = map_config.resource_configs;
 
@@ -306,7 +330,16 @@ function drawGame(hostname, port) {
             });
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
-            let terrains = Array.from({ length: ROWS }, () => Array(COLS).fill(terrainImages.unknown)); //all squares are unknown at teh start
+            let terrains = Array.from({ length: ROWS }, () => Array(COLS).fill(terrainImages.unknown)); //all squares are unknown at the start
+
+            function updateSidebarDimensions() {
+                //Since final canvas dimensions are known, resize the container that holds canvas and DIV for bot-info DIVs
+                //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
+                document.getElementById("game-info-container").style.gridTemplateColumns = canvas.width + "px " + (screenWidth - canvas.width) + "px";
+
+                //Allows the bot-info container to take up as much remaining space as possible (on the right; not any space of game canvas)
+                document.getElementById("bot-info-megacontainer").style.width = screenWidth - canvas.width + "px";
+            }
 
             function drawASquare(c, r, background, image) {
                 ctx.drawImage(background, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
