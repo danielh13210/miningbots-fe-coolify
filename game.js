@@ -1,3 +1,4 @@
+import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
 
 console.log("script started");
@@ -602,11 +603,11 @@ function drawGame(hostname, port) {
                         botDiv.classList.add('bot-info');
                         botDiv.style = "width: 14%, height: 24%";
                         botDiv.innerHTML = `
-                <h4 style="margin: 2px 0; padding: 0;"><b>${variant}</b> ${id}</h4>
+                <h4 style="margin: 2px 0; padding: 0;"><b>${NameMaps.mapName("variantMap", variant)}</b> ${id}</h4>
                 <hr style="margin: 2px 0;">
                 <p style="margin: 2px 0; padding: 0;"><b>Position:</b> ${position.x}, ${position.y}</p>
                 <p style="margin: 2px 0; padding: 0;"><b>Energy:</b> ${current_energy}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${job.action}</p> 
+                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p> 
                 <hr style="margin: 2px 0;">
             `;
 // , ${job.status}
