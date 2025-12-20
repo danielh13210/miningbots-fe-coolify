@@ -396,7 +396,6 @@ function drawGame(hostname, port) {
                                 break;*/
                             default:
                                 if(element < BOT_START_IDX){
-                                    //NOTE: slow, O(n) reverse search through elements to find matching resource
                                     const resourceId = resources[element-resource_element_start_idx];
                                     let image=images[resourceId.toLowerCase()];
                                     if(image.complete && image.naturalHeight > 0){
