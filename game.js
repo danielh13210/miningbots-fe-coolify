@@ -9,8 +9,8 @@ const server = document.cookie
 //Probably some default values for original testing:
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
-var hostname = "localhost";
-var port = 9003;
+var hostname;
+var port = 80;
 // if (server !== null) hostname = server; 
 var gameId;
 
@@ -103,17 +103,25 @@ var servers = {
     },
     "localhost": {
         name: "localhost",
-        url: "localhost",
-    },
-    "localhost": {
-        name: "localhost",
-        url: "localhost",
+        url: "localhost:9003",
     },
     "miningbots-api.dev.tk.sg": {
         name: "miningbots-api.dev.tk.sg",
         url: "miningbots-api.dev.tk.sg",
     },
 };
+
+if(server && servers[server]) {
+    url=servers[server].url;
+    if(url.indexOf(":")!=-1){
+        hostname = hostname.split(":")[0];
+        port = url.split(":")[1];
+    } else {
+        hostname = url;
+    }
+}else {
+    hostname = null;
+}
 
 // Variable to hold the selected server URL
 let selectedServerUrl = null;
@@ -654,6 +662,8 @@ function drawGame(hostname, port) {
             console.error("Error:", error);
         });
 }
-console.log(servers["localhost"].name);
-document.getElementById("navbarDropdownMenuLink").textContent = hostname !== null ? servers[hostname].name : "Choose a server";
-drawGame(hostname, port);
+if(hostname) {
+    console.log(servers[hostname].name);
+    document.getElementById("navbarDropdownMenuLink").textContent = servers[hostname].name;
+    drawGame(hostname, port);
+}
