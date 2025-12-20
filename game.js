@@ -148,8 +148,7 @@ document.addEventListener("DOMContentLoaded", function () {
             selectedServerUrl = this.getAttribute("data-url");
             console.log(selectedServerUrl);
             let selectedServerName = this.textContent;
-            document.getElementById("navbarDropdownMenuLink").textContent =
-                selectedServerName;
+            setServerName(selectedServerName);
             // Save to cookie first
             CookieUtilities.setCookie("lastServer", selectedServerUrl, CookieUtilities.never);
             location.reload();
@@ -688,8 +687,8 @@ function drawGame(hostname, port) {
             console.error("Error:", error);
         });
 }
-if(hostname) {
-    console.log(servers[hostname].name);
-    document.getElementById("navbarDropdownMenuLink").textContent = servers[hostname].name;
+console.log(servers["localhost"].name);
+if (hostname !== null) {
+    setServerName(servers[hostname].name);
     drawGame(hostname, port);
 }
