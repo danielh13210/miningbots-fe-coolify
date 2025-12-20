@@ -298,6 +298,8 @@ function drawGame(hostname, port) {
                 unobtanium: 10*/
             };
 
+            const resource_element_start_idx = Math.max(...Object.values(elements))+1; //the index where resource elements start in the elements object
+
             const resources = {
 
             }
@@ -306,7 +308,7 @@ function drawGame(hostname, port) {
             //Adds new game elements from resource_configs if they do not already exist
             resource_configs.forEach(resource => {
                 resources[Object.keys(resources).length] = resource.name.toLowerCase();
-                elements[resource.name.toLowerCase()] = Object.keys(elements).length;
+                elements[resource.name.toLowerCase()] = resource_element_start_idx + Object.keys(resources).length-1; 
                 images[resource.name.toLowerCase()] = new Image();
                 images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
             });
@@ -393,18 +395,21 @@ function drawGame(hostname, port) {
                                 drawASquare(col, row, terrain, images.unobtanium);
                                 break;*/
                             default:
-                                //NOTE: slow, O(n) reverse search through elements to find matching resource
-                                Object.keys(elements).forEach(resourceId => {
-                                    if(element == elements[resourceId]){
-                                        let image=images[resourceId.toLowerCase()];
-                                        if(image.complete && image.naturalHeight > 0){
-                                            drawASquare(col, row, terrain, image);
-                                        } else {
-                                            ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
-                                        }
-                                        break;
+                                if(element < BOT_START_IDX){
+                                    //NOTE: slow, O(n) reverse search through elements to find matching resource
+                                    const resourceId = resources[element-resource_element_start_idx];
+                                    let image=images[resourceId.toLowerCase()];
+                                    if(image.complete && image.naturalHeight > 0){
+                                        drawASquare(col, row, terrain, image);
+                                    } else {
+                                        ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                                     }
-                                });
+                                } else {
+                                    let playerIndex = Math.floor((element - BOT_START_IDX) / 2);
+                                    let variant = (element - BOT_START_IDX) % 2 === 0 ? 'kMiningBot' : 'kFactoryBot';
+                                    let color=colors[playerIndex];
+                                    drawABot(col, row, color, images[variant]);
+                                }
                         }
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
                             ctx.strokeStyle = 'white'; // set border color to white
