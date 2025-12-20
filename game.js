@@ -257,9 +257,7 @@ function drawGame(hostname, port) {
             const MAX_WHITE_WIDTH = 60;
             const MAX_WHITE_HEIGHT = 60;
             const borderWidth = 1;
-            updateDimensions(true); 
-            //Possibly add more colours for >2 players too
-            const colors = ['blue', 'red'];
+            updateDimensions(true);
 
             let resizeTimeout = null;
             window.addEventListener("resize",(_e)=>{
@@ -453,6 +451,8 @@ function drawGame(hostname, port) {
 
             //Sidebars has to be dynamically added if in the future you want >2 players
             const sidebars = [document.getElementById('bot-sidebar-one'), document.getElementById('bot-sidebar-two')];
+
+            const colors = ['blue', 'red','green','yellow','purple','orange','pink'];
 
             //Updates the bot's position and its job?
             function updateBot(botUpdate, playerId) {
