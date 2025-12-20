@@ -3,6 +3,12 @@ body {
   font-family: Arial, sans-serif;
 }
 
+@media (max-width: 992px) {
+  .collapse-if-minified {
+    display:none;
+  }
+}
+
 .sidebar-container {
   width: auto;
   position: relative;
@@ -51,4 +57,9 @@ body {
 
 .navbar {
   padding-left: 1%;
+}
+
+.navbar-brand-logo {
+  margin-right: 10px;
+  height: 30px;
 }
