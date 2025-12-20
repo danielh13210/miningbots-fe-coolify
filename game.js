@@ -645,6 +645,7 @@ function drawGame(hostname, port) {
                         cargo.forEach(item => {
                             //Image of the mineral
                             let mineralImage = document.createElement('img')
+                            mineralImage.alt=mineralImage.title=map_config.resource_configs[item.id].name;
                             mineralImage.src = "./assets/" + String(resources[item.id]) + ".png"
                             mineralImage.style = "width: 1vw; height: 1vw"
                             cargoContainer.appendChild(mineralImage);
