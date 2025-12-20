@@ -182,36 +182,16 @@ function drawGame(hostname, port) {
     const ctx = canvas.getContext("2d");
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
-    var GRID_SIZE;
-    const images = {
-        kFactoryBot: new Image(),
-        kMiningBot: new Image(),
-        mixed_ore: new Image(),
-        granite: new Image(),
-        vibranium: new Image(),
-        adamantite: new Image(),
-        unobtanium: new Image(),
-    };
-    const terrainImages = {
-        unknown: new Image(),
-        grassland: new Image(),
-        hills: new Image(),
-        mountain: new Image()
-    };
-
-    //Assigns images
-    images.kFactoryBot.src = 'assets/Factory_Bot.png';
-    images.kMiningBot.src = 'assets/Mining_Bot.png';
-    images.mixed_ore.src = 'assets/Mixed_Ore.png';
-    images.granite.src = 'assets/Granite.png';
-    images.vibranium.src = 'assets/Vibranium.png';
-    images.adamantite.src = 'assets/Adamantite.png';
-    images.unobtanium.src = 'assets/Unobtanium.png';
-
-    terrainImages.unknown.src = 'assets/unknown.jpg';
-    terrainImages.grassland.src = 'assets/grassland.jpg';
-    terrainImages.hills.src = 'assets/hills.jpg';
-    terrainImages.mountain.src = 'assets/mountain.jpg';
+    const GRID_SIZE = 32;
+    const images = {};
+    images.kMiningBot = new Image();
+    images.kMiningBot.src = "assets/Mining_Bot.png";
+    images.kFactoryBot = new Image();
+    images.kFactoryBot.src = "assets/Factory_Bot.png";
+    images.mixed_ore = new Image();
+    images.mixed_ore.src = "assets/Mixed_Ore.png";
+    images.unknown = new Image();
+    let terrainImages={};
 
     //Likely connecting to the server and retrieving initial game state
     fetch(`${http_type}://${hostname}:${port}/games`, {
@@ -312,10 +292,10 @@ function drawGame(hostname, port) {
                 unknown: 4,
                 traversable: 5,
                 resource: 6,
-                granite: 7,
+                /*granite: 7,
                 vibranium: 8,
                 adamantite: 9,
-                unobtanium: 10
+                unobtanium: 10*/
             };
 
             const resources = {
@@ -325,7 +305,20 @@ function drawGame(hostname, port) {
             // let resource_configs = result.map_config.resource_configs;
             //Adds new game elements from resource_configs if they do not already exist
             resource_configs.forEach(resource => {
-                resources[Object.keys(resources).length] = resource.name;
+                resources[Object.keys(resources).length] = resource.name.toLowerCase();
+                elements[resource.name.toLowerCase()] = Object.keys(elements).length;
+                images[resource.name.toLowerCase()] = new Image();
+                images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
+            });
+
+            function addTerrain(terrain_name){
+                terrainImages[terrain_name] = new Image();
+                terrainImages[terrain_name].src = 'assets/' + terrain_name + '.jpg';
+            }
+            //Adds new terrain images from terrain_configs
+            addTerrain('unknown'); //always have unknown terrain
+            map_config.terrain_configs.forEach(terrain => {
+                addTerrain(terrain.name.toLowerCase());
             });
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
@@ -387,7 +380,7 @@ function drawGame(hostname, port) {
                             case elements.resource:
                                 ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                                 break;
-                            case elements.granite:
+                            /*case elements.granite:
                                 drawASquare(col, row, terrain, images.granite);
                                 break;
                             case elements.vibranium:
@@ -398,14 +391,20 @@ function drawGame(hostname, port) {
                                 break;
                             case elements.unobtanium:
                                 drawASquare(col, row, terrain, images.unobtanium);
-                                break;
+                                break;*/
                             default:
-                                if(element >= BOT_START_IDX){ //bot elements
-                                    let playerIndex = Math.floor((element - BOT_START_IDX) / 2);
-                                    let variant = (element - BOT_START_IDX) % 2 === 0 ? 'kMiningBot' : 'kFactoryBot';
-                                    let color=colors[playerIndex];
-                                    drawABot(col, row, color, images[variant]);
-                                }
+                                //NOTE: slow, O(n) reverse search through elements to find matching resource
+                                Object.keys(elements).forEach(resourceId => {
+                                    if(element == elements[resourceId]){
+                                        let image=images[resourceId.toLowerCase()];
+                                        if(image.complete && image.naturalHeight > 0){
+                                            drawASquare(col, row, terrain, image);
+                                        } else {
+                                            ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                                        }
+                                        break;
+                                    }
+                                });
                         }
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
                             ctx.strokeStyle = 'white'; // set border color to white
@@ -533,7 +532,7 @@ function drawGame(hostname, port) {
             //Updates the state of a tile on the map
             function updateLand(data) {
                 const { position: { x, y }, is_traversable, resources, terrain_id } = data;
-                switch (terrain_id) {
+                /*switch (terrain_id) {
                     case 0:
                         terrains[ROWS - y - 1][x] = terrainImages.grassland;
                         break;
@@ -545,7 +544,12 @@ function drawGame(hostname, port) {
                         break;
                     default:
                         terrains[ROWS - y - 1][x] = terrainImages.unknown;
+                }*/
+                let terrain_name = 'unknown';
+                if(terrain_id < map_config.terrain_configs.length){
+                    terrain_name = map_config.terrain_configs[terrain_id].name.toLowerCase();
                 }
+                terrains[ROWS - y - 1][x] = terrainImages[terrain_name];
 
                 if (is_traversable) {
                     gameState[ROWS - y - 1][x] = elements.traversable;
@@ -558,7 +562,7 @@ function drawGame(hostname, port) {
                             }
                         })
 
-                        switch (highestId) {
+/*                        switch (highestId) {
                             case 0:
                                 gameState[ROWS - y - 1][x] = elements.granite;
                                 break;
@@ -574,6 +578,12 @@ function drawGame(hostname, port) {
                             default:
                                 gameState[ROWS - y - 1][x] = elements.resource;
                                 break;
+                        }*/
+                        // we have to use map_config because the resources is shadowed here
+                        if(map_config.resource_configs[highestId] !== undefined){
+                            gameState[ROWS - y - 1][x] = elements[map_config.resource_configs[highestId].name.toLowerCase()];
+                        } else {
+                            gameState[ROWS - y - 1][x] = elements.resource;
                         }
                     }
                 }
@@ -662,6 +672,7 @@ function drawGame(hostname, port) {
                         cargo.forEach(item => {
                             //Image of the mineral
                             let mineralImage = document.createElement('img')
+                            mineralImage.alt=mineralImage.title=map_config.resource_configs[item.id].name;
                             mineralImage.src = "./assets/" + String(resources[item.id]) + ".png"
                             mineralImage.style = "width: 1vw; height: 1vw"
                             cargoContainer.appendChild(mineralImage);
