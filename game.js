@@ -1,13 +1,11 @@
+import CookieUtilities from './scripts/utilities/cookie.js';
 import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
 
 console.log("script started");
 
 // Get hostname from cookie, otherwise leave as null
-const server = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("lastServer="))
-    ?.split("=")[1];
+const server = CookieUtilities.getCookie("lastServer");
 
 //Probably some default values for original testing:
 // var hostname = "miningbots-api.dev.tk.sg";
@@ -153,7 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("navbarDropdownMenuLink").textContent =
                 selectedServerName;
             // Save to cookie first
-            document.cookie = `lastServer=${selectedServerUrl}`;
+            CookieUtilities.setCookie("lastServer", selectedServerUrl, CookieUtilities.never);
             location.reload();
             // drawGame(selectedServerUrl, port);
         });
