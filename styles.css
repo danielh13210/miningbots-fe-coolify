@@ -82,6 +82,7 @@ a[role="button"] svg:hover {
 
 a[role="button"] svg:active {
   color: #777777 !important;
+}
 .navbar-brand-logo {
   margin-right: 10px;
   height: 30px;
