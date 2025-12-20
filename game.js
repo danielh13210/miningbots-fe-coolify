@@ -1,3 +1,5 @@
+import DialogUtilities from './scripts/ui/webdialog.js';
+
 console.log("script started");
 
 // Get hostname from cookie, otherwise leave as null
@@ -539,30 +541,10 @@ function drawGame(hostname, port) {
                 })
             }
 
-            //Just the win screen
+            //Display a dialog box in the middle of the screen indicating the winner
             function showWinner(playerId) {
-                const winnerDiv = document.createElement('div');
-                winnerDiv.style.position = 'absolute';
-                winnerDiv.style.top = '50%';
-                winnerDiv.style.left = '50%';
-                winnerDiv.style.transform = 'translate(-50%, -50%)';
-                winnerDiv.style.padding = '20px';
-                winnerDiv.style.backgroundColor = 'white';
-                winnerDiv.style.border = '2px solid black';
-                winnerDiv.style.zIndex = '1000';
-                winnerDiv.innerHTML = `<h1>Player ${playerId} Won!</h1>`;
-
-                const closeButton = document.createElement('button');
-                closeButton.innerText = 'X';
-                closeButton.style.position = 'absolute';
-                closeButton.style.top = '-1px';
-                closeButton.style.right = '-1px';
-                closeButton.addEventListener('click', () => {
-                    document.body.removeChild(winnerDiv);
-                });
-
-                winnerDiv.appendChild(closeButton);
-                document.body.appendChild(winnerDiv);
+                let text = `<h1>Player ${playerId} Won!</h1>`;
+                DialogUtilities.showDialog(text,"We have a winner!");
             }
 
             function renderBots() {
