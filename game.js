@@ -393,18 +393,25 @@ function drawGame(hostname, port) {
                                 drawASquare(col, row, terrain, images.unobtanium);
                                 break;*/
                             default:
-                                //NOTE: slow, O(n) reverse search through elements to find matching resource
-                                Object.keys(elements).forEach(resourceId => {
-                                    if(element == elements[resourceId]){
-                                        let image=images[resourceId.toLowerCase()];
-                                        if(image.complete && image.naturalHeight > 0){
-                                            drawASquare(col, row, terrain, image);
-                                        } else {
-                                            ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                                if(element < BOT_START_IDX){
+                                    //NOTE: slow, O(n) reverse search through elements to find matching resource
+                                    Object.keys(elements).forEach(resourceId => {
+                                        if(element == elements[resourceId]){
+                                            let image=images[resourceId.toLowerCase()];
+                                            if(image.complete && image.naturalHeight > 0){
+                                                drawASquare(col, row, terrain, image);
+                                            } else {
+                                                ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                                            }
+                                            break;
                                         }
-                                        break;
-                                    }
-                                });
+                                    });
+                                } else {
+                                    let playerIndex = Math.floor((element - BOT_START_IDX) / 2);
+                                    let variant = (element - BOT_START_IDX) % 2 === 0 ? 'kMiningBot' : 'kFactoryBot';
+                                    let color=colors[playerIndex];
+                                    drawABot(col, row, color, images[variant]);
+                                }
                         }
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
                             ctx.strokeStyle = 'white'; // set border color to white
