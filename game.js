@@ -353,7 +353,12 @@ function drawGame(hostname, port) {
                                 //NOTE: slow, O(n) reverse search through elements to find matching resource
                                 Object.keys(elements).forEach(resourceId => {
                                     if(element == elements[resourceId]){
-                                        drawASquare(col, row, terrain, images[resourceId.toLowerCase()]);
+                                        let image=images[resourceId.toLowerCase()];
+                                        if(image.complete && image.naturalHeight > 0){
+                                            drawASquare(col, row, terrain, image);
+                                        } else {
+                                            ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                                        }
                                     }
                                 });
                         }
