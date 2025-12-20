@@ -654,5 +654,7 @@ function drawGame(hostname, port) {
         });
 }
 console.log(servers["localhost"].name);
-setServerName(hostname !== null ? servers[hostname].name : "Choose a server");
+if (hostname !== null) {
+    setServerName(servers[hostname].name);
+}
 drawGame(hostname, port);
