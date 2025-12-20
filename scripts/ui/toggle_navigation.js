@@ -2,13 +2,11 @@ let navigation_link_;
 let dropdownMenu_;
 let navigation_dropdown_;
 
-document.addEventListener("DOMContentLoaded",()=>{
-  navigation_link_=document.getElementById('navbarDropdownMenuLink');
-  dropdownMenu_=document.getElementById('dropdown-menu');
-  navigation_dropdown_ = bootstrap.Dropdown.getOrCreateInstance(navigation_link_);
-})
+navigation_link_=document.getElementById('navbarDropdownMenuLink');
+dropdownMenu_=document.getElementById('dropdown-menu');
+navigation_dropdown_ = bootstrap.Dropdown.getOrCreateInstance(navigation_link_);
 
-let NavigationManager = {
+let NavigationManager={
   toggleNavigation: function () {
     setTimeout(()=>{navigation_dropdown_.toggle()}, 0);
   },
@@ -22,6 +20,9 @@ let NavigationManager = {
     navigation_dropdown_.show();
   }
 }
+
+window.NavigationManager=NavigationManager;
+export default NavigationManager;
 
 window.matchMedia("(max-width: 992px)").addEventListener('change', e => {
   if (!e.matches) { // switched to desktop mode
