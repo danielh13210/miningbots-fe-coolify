@@ -175,25 +175,15 @@ function drawGame(hostname, port) {
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
     const GRID_SIZE = 32;
-    const images = {
-        kFactoryBot: new Image(),
-        kMiningBot: new Image(),
-        mixed_ore: new Image(),
-        granite: new Image(),
-        vibranium: new Image(),
-        adamantite: new Image(),
-        unobtanium: new Image(),
-    };
+    const images = {};
+    images.kMiningBot = new Image();
+    images.kMiningBot.src = "assets/Mining_Bot.png";
+    images.kFactoryBot = new Image();
+    images.kFactoryBot.src = "assets/Factory_Bot.png";
+    images.mixed_ore = new Image();
+    images.mixed_ore.src = "assets/Mixed_Ore.png";
+    images.unknown = new Image();
     let terrainImages={};
-
-    //Assigns images
-    images.kFactoryBot.src = 'assets/Factory_Bot.png';
-    images.kMiningBot.src = 'assets/Mining_Bot.png';
-    images.mixed_ore.src = 'assets/Mixed_Ore.png';
-    images.granite.src = 'assets/Granite.png';
-    images.vibranium.src = 'assets/Vibranium.png';
-    images.adamantite.src = 'assets/Adamantite.png';
-    images.unobtanium.src = 'assets/Unobtanium.png';
 
     //Likely connecting to the server and retrieving initial game state
     fetch(`${http_type}://${hostname}:${port}/games`, {
@@ -268,10 +258,10 @@ function drawGame(hostname, port) {
                 unknown: 4,
                 traversable: 5,
                 resource: 6,
-                granite: 7,
+                /*granite: 7,
                 vibranium: 8,
                 adamantite: 9,
-                unobtanium: 10
+                unobtanium: 10*/
             };
 
             const resources = {
@@ -281,7 +271,10 @@ function drawGame(hostname, port) {
             // let resource_configs = result.map_config.resource_configs;
             //Adds new game elements from resource_configs if they do not already exist
             resource_configs.forEach(resource => {
-                resources[Object.keys(resources).length] = resource.name;
+                resources[Object.keys(resources).length] = resource.name.toLowerCase();
+                elements[resource.name.toLowerCase()] = Object.keys(elements).length;
+                images[resource.name.toLowerCase()] = new Image();
+                images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
             });
 
             function addTerrain(terrain_name){
@@ -344,7 +337,7 @@ function drawGame(hostname, port) {
                             case elements.resource:
                                 ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                                 break;
-                            case elements.granite:
+                            /*case elements.granite:
                                 drawASquare(col, row, terrain, images.granite);
                                 break;
                             case elements.vibranium:
@@ -355,7 +348,14 @@ function drawGame(hostname, port) {
                                 break;
                             case elements.unobtanium:
                                 drawASquare(col, row, terrain, images.unobtanium);
-                                break;
+                                break;*/
+                            default:
+                                //NOTE: slow, O(n) reverse search through elements to find matching resource
+                                Object.keys(elements).forEach(resourceId => {
+                                    if(element == elements[resourceId]){
+                                        drawASquare(col, row, terrain, images[resourceId.toLowerCase()]);
+                                    }
+                                });
                         }
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
                             ctx.strokeStyle = 'white'; // set border color to white
@@ -508,7 +508,7 @@ function drawGame(hostname, port) {
                             }
                         })
 
-                        switch (highestId) {
+/*                        switch (highestId) {
                             case 0:
                                 gameState[ROWS - y - 1][x] = elements.granite;
                                 break;
@@ -524,6 +524,12 @@ function drawGame(hostname, port) {
                             default:
                                 gameState[ROWS - y - 1][x] = elements.resource;
                                 break;
+                        }*/
+                        // we have to use map_config because the resources is shadowed here
+                        if(map_config.resource_configs[highestId] !== undefined){
+                            gameState[ROWS - y - 1][x] = elements[map_config.resource_configs[highestId].name.toLowerCase()];
+                        } else {
+                            gameState[ROWS - y - 1][x] = elements.resource;
                         }
                     }
                 }
