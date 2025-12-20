@@ -15,7 +15,7 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"></script>
   <link href="styles.css" rel="stylesheet" />
-
+  <script src="/scripts/utilities/svgimporter.js" type="module"></script>
   <script src="/scripts/ui/server_text.js"></script>
 </head>
 
@@ -40,6 +40,7 @@
         </li>
       </ul>
     </div>
+    <a role="button" title="Settings" onclick="SettingsManager.open_popup();" id="settings-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/settings.svg"></svgfile></a>
   </nav>
 
   <!--Allows the game canvas and a collection of players' bots to be aligned side-by-side horizontally-->
@@ -56,6 +57,10 @@
   </div>
 
   <script src="game.js" type="module"></script>
+  <script type="module">
+    import SettingsManager from "/scripts/settings.js";
+    SettingsManager.initialize_main();
+  </script>
 </body>
 
 </html>

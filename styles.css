@@ -59,6 +59,29 @@ body {
   padding-left: 1%;
 }
 
+a[role="button"] {
+  cursor: pointer;
+  text-decoration: none;
+  color:#000000;
+}
+
+svg {
+  width: 32px;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+body.dark-mode a[role="button"] svg{
+  color: white;
+}
+
+
+a[role="button"] svg:hover {
+  color: #999999 !important;
+}
+
+a[role="button"] svg:active {
+  color: #777777 !important;
 .navbar-brand-logo {
   margin-right: 10px;
   height: 30px;

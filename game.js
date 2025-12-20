@@ -1,4 +1,6 @@
 import CookieUtilities from './scripts/utilities/cookie.js';
+import SettingsManager from './scripts/settings.js';
+import {in_private_scope} from './scripts/utilities/functools.js';
 import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
 
@@ -10,107 +12,118 @@ const server = CookieUtilities.getCookie("lastServer");
 //Probably some default values for original testing:
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
-var hostname;
-var port = 80;
+var hostname, port;
 // if (server !== null) hostname = server; 
 var gameId;
 
-var http_type = "http";
-var ws_type = "ws";
+const CONFIG_=SettingsManager.read_settings_cookie();
+
+if (CONFIG_.require_security){
+    var http_type = "https";
+    var ws_type = "wss";
+} else {
+    var http_type = "http"; 
+    var ws_type = "ws";
+}
 // var http_type = "https";
 // var ws_type = "wss";
 
 //Dictionary of servers and respective names, urls
-var servers = {
+var servers = in_private_scope(()=>{
+  let gport=CONFIG_.game_port;
+  let lport=CONFIG_.localhost_port;
+  return {
     "p1.bootcamp.tk.sg": {
         name: "Game 1",
-        url: "p1.bootcamp.tk.sg",
+        url: `p1.bootcamp.tk.sg:${gport}`,
     },
     "p2.bootcamp.tk.sg": {
         name: "Game 2",
-        url: "p2.bootcamp.tk.sg",
+        url: `p2.bootcamp.tk.sg:${gport}`,
     },
     "p3.bootcamp.tk.sg": {
         name: "Game 3",
-        url: "p3.bootcamp.tk.sg",
+        url: `p3.bootcamp.tk.sg:${gport}`,
     },
     "p4.bootcamp.tk.sg": {
         name: "Game 4",
-        url: "p4.bootcamp.tk.sg",
+        url: `p4.bootcamp.tk.sg:${gport}`,
     },
     "p5.bootcamp.tk.sg": {
         name: "Game 5",
-        url: "p5.bootcamp.tk.sg",
+        url: `p5.bootcamp.tk.sg:${gport}`,
     },
     "p6.bootcamp.tk.sg": {
         name: "Game 6",
-        url: "p6.bootcamp.tk.sg",
+        url: `p6.bootcamp.tk.sg:${gport}`,
     },
     "p7.bootcamp.tk.sg": {
         name: "Main Game",
-        url: "p7.bootcamp.tk.sg",
+        url: `p7.bootcamp.tk.sg:${gport}`,
     },
     "p8.bootcamp.tk.sg": {
         name: "Game 8",
-        url: "p8.bootcamp.tk.sg",
+        url: `p8.bootcamp.tk.sg:${gport}`,
     },
     "p9.bootcamp.tk.sg": {
         name: "Game 9",
-        url: "p9.bootcamp.tk.sg",
+        url: `p9.bootcamp.tk.sg:${gport}`,
     },
     "p10.bootcamp.tk.sg": {
         name: "Game 10",
-        url: "p10.bootcamp.tk.sg",
+        url: `p10.bootcamp.tk.sg:${gport}`,
     },
     "s1.bootcamp.tk.sg": {
         name: "Staging 1",
-        url: "s1.bootcamp.tk.sg",
+        url: `s1.bootcamp.tk.sg:${gport}`,
     },
     "s2.bootcamp.tk.sg": {
         name: "Staging 2",
-        url: "s2.bootcamp.tk.sg",
+        url: `s2.bootcamp.tk.sg:${gport}`,
     },
     "s3.bootcamp.tk.sg": {
         name: "Staging 3",
-        url: "s3.bootcamp.tk.sg",
+        url: `s3.bootcamp.tk.sg:${gport}`,
     },
     "s4.bootcamp.tk.sg": {
         name: "Staging 4",
-        url: "s4.bootcamp.tk.sg",
+        url: `s4.bootcamp.tk.sg:${gport}`,
     },
     "s5.bootcamp.tk.sg": {
         name: "Staging 5",
-        url: "s5.bootcamp.tk.sg",
+        url: `s5.bootcamp.tk.sg:${gport}`,
     },
     "s6.bootcamp.tk.sg": {
         name: "Staging 6",
-        url: "s6.bootcamp.tk.sg",
+        url: `s6.bootcamp.tk.sg:${gport}`,
     },
     "s7.bootcamp.tk.sg": {
         name: "Staging 7",
-        url: "s7.bootcamp.tk.sg",
+        url: `s7.bootcamp.tk.sg:${gport}`,
     },
     "s8.bootcamp.tk.sg": {
         name: "Staging 8",
-        url: "s8.bootcamp.tk.sg",
+        url: `s8.bootcamp.tk.sg:${gport}`,
     },
     "s9.bootcamp.tk.sg": {
         name: "Staging 9",
-        url: "s9.bootcamp.tk.sg",
+        url: `s9.bootcamp.tk.sg:${gport}`,
     },
     "s10.bootcamp.tk.sg": {
         name: "Staging 10",
-        url: "s10.bootcamp.tk.sg",
+        url: `s10.bootcamp.tk.sg:${gport}`,
     },
     "localhost": {
         name: "localhost",
-        url: "localhost:9003",
+        url: `localhost:${lport}`,
     },
     "miningbots-api.dev.tk.sg": {
         name: "miningbots-api.dev.tk.sg",
         url: "miningbots-api.dev.tk.sg",
-    },
-};
+        require_security: true,
+    }
+  }
+});
 
 if(server && servers[server]) {
     let url=servers[server].url;
@@ -126,6 +139,20 @@ if(server && servers[server]) {
 
 // Variable to hold the selected server URL
 let selectedServerUrl = null;
+
+if(server && servers[server]){
+  let url=servers[server].url;
+  if(url.indexOf(":")!=-1){
+    hostname = url.split(":")[0];
+    port = url.split(":")[1];
+  } else {
+    hostname = url;
+  }
+  if(servers[hostname].require_security) {
+    http_type = "https";
+    ws_type = "wss";
+  }
+}
 
 // Function to populate the dropdown menu
 function populateDropdown() {
@@ -430,7 +457,7 @@ function drawGame(hostname, port) {
 
             ws.onopen = function () {
                 console.log('Connected to WebSocket server');
-                const subscribeRequest = JSON.stringify({ game_id: result.game_id, observer_key: 514525537, observer_name: 'Observer' });
+                const subscribeRequest = JSON.stringify({ game_id: result.game_id, observer_key: CONFIG_.observer_key, observer_name: 'Observer' });
                 ws.send(subscribeRequest);
             };
 
