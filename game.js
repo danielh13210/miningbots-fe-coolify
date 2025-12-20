@@ -1,16 +1,17 @@
+import CookieUtilities from './scripts/utilities/cookie.js';
+import NameMaps from './scripts/ui/human_readable_names.js';
+import DialogUtilities from './scripts/ui/webdialog.js';
+
 console.log("script started");
 
 // Get hostname from cookie, otherwise leave as null
-const server = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("lastServer="))
-    ?.split("=")[1];
+const server = CookieUtilities.getCookie("lastServer");
 
 //Probably some default values for original testing:
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
-var hostname = "localhost";
-var port = 9003;
+var hostname;
+var port = 80;
 // if (server !== null) hostname = server; 
 var gameId;
 
@@ -103,17 +104,25 @@ var servers = {
     },
     "localhost": {
         name: "localhost",
-        url: "localhost",
-    },
-    "localhost": {
-        name: "localhost",
-        url: "localhost",
+        url: "localhost:9003",
     },
     "miningbots-api.dev.tk.sg": {
         name: "miningbots-api.dev.tk.sg",
         url: "miningbots-api.dev.tk.sg",
     },
 };
+
+if(server && servers[server]) {
+    let url=servers[server].url;
+    if(url.indexOf(":")!=-1){
+        hostname = url.split(":")[0];
+        port = url.split(":")[1];
+    } else {
+        hostname = url;
+    }
+}else {
+    hostname = null;
+}
 
 // Variable to hold the selected server URL
 let selectedServerUrl = null;
@@ -123,7 +132,7 @@ function populateDropdown() {
     let dropdownMenu = document.querySelector(".dropdown-menu");
     Object.keys(servers).forEach(function (key) {
         let server = servers[key];
-        let menuItem = `<a class="dropdown-item" href="#" data-url="${server.url}">${server.name}</a>`;
+        let menuItem = `<a class="dropdown-item" href="#" data-url="${key}">${server.name}</a>`;
         dropdownMenu.innerHTML += menuItem;
     });
 }
@@ -142,7 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("navbarDropdownMenuLink").textContent =
                 selectedServerName;
             // Save to cookie first
-            document.cookie = `lastServer=${selectedServerUrl}`;
+            CookieUtilities.setCookie("lastServer", selectedServerUrl, CookieUtilities.never);
             location.reload();
             // drawGame(selectedServerUrl, port);
         });
@@ -267,6 +276,19 @@ function drawGame(hostname, port) {
                     resizeTimeout=null;
                 },100);
             });
+            const GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
+            const BOT_START_IDX = 500; //starting index for bot elements in gameState array, to avoid clashing with other element indices. Arbitrary.
+
+
+            console.log(COLS);
+
+            // Update canvas dimensions
+            canvas.width = COLS * GRID_SIZE;
+            canvas.height = ROWS * GRID_SIZE;
+
+            //Since final canvas dimensions are known, resize the container that holds canvas and DIV for bot-info DIVs
+            //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
+            document.getElementById("game-info-container").style = "display: grid; grid-template-columns: " + canvas.width + "px " + (screenWidth - canvas.width) + "px"
 
             function updateDimensions(lazy_render) {
                 // browser window dimensions
@@ -284,10 +306,10 @@ function drawGame(hostname, port) {
             let resource_configs = map_config.resource_configs;
 
             const elements = {
-                kMiningBotOne: 0,
+                /*kMiningBotOne: 0,
                 kFactoryBotOne: 1,
                 kMiningBotTwo: 2,
-                kFactoryBotTwo: 3,
+                kFactoryBotTwo: 3,*/
                 unknown: 4,
                 traversable: 5,
                 resource: 6,
@@ -341,7 +363,7 @@ function drawGame(hostname, port) {
                         const element = gameState[row][col];
                         const terrain = terrains[row][col];
                         switch (element) {
-                            case elements.kFactoryBotOne: // Blue
+                            /*case elements.kFactoryBotOne: // Blue
                                 drawABot(col, row, '#25537b', images.kFactoryBot);
                                 //drawASquare(col, row, terrain, images.kFactoryBot);
                                 break;
@@ -356,7 +378,7 @@ function drawGame(hostname, port) {
                             case elements.kMiningBotTwo: // Red
                                 drawABot(col, row, '#AA4344', images.kMiningBot);
                                 //drawASquare(col, row, terrain, images.kMiningBot);
-                                break;
+                                break;*/
                             case elements.unknown:
                                 drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
                                 break;
@@ -378,6 +400,13 @@ function drawGame(hostname, port) {
                             case elements.unobtanium:
                                 drawASquare(col, row, terrain, images.unobtanium);
                                 break;
+                            default:
+                                if(element >= BOT_START_IDX){ //bot elements
+                                    let playerIndex = Math.floor((element - BOT_START_IDX) / 2);
+                                    let variant = (element - BOT_START_IDX) % 2 === 0 ? 'kMiningBot' : 'kFactoryBot';
+                                    let color=colors[playerIndex];
+                                    drawABot(col, row, color, images[variant]);
+                                }
                         }
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
                             ctx.strokeStyle = 'white'; // set border color to white
@@ -450,14 +479,19 @@ function drawGame(hostname, port) {
             }
 
             //Sidebars has to be dynamically added if in the future you want >2 players
-            const sidebars = [document.getElementById('bot-sidebar-one'), document.getElementById('bot-sidebar-two')];
-
-            const colors = ['blue', 'red','green','yellow','purple','orange','pink'];
+            const sidebars = Array.from(document.querySelectorAll('div[id^="bot-sidebar-"]'));
+            //Possibly add more colours for >2 players too
+            const colors = ['blue', 'red', 'green', 'yellow', 'purple', 'orange', 'pink'];
 
             //Updates the bot's position and its job?
             function updateBot(botUpdate, playerId) {
-                if (!players.hasOwnProperty(playerId) && Object.keys(players).length < 2) {
+                if (!players.hasOwnProperty(playerId)) {
                     players[playerId] = Object.keys(players).length;
+                    let sidebar=document.createElement("div");
+                    sidebar.classList.add("sidebar");
+                    sidebar.id="bot-sidebar-"+(Object.keys(players).length);
+                    document.getElementById("bot-info-megacontainer").appendChild(sidebar);
+                    sidebars.push(sidebar);
                 }
                 const playerIndex = players[playerId];
 
@@ -553,42 +587,20 @@ function drawGame(hostname, port) {
                 })
             }
 
-            //Just the win screen
+            //Display a dialog box in the middle of the screen indicating the winner
             function showWinner(playerId) {
-                const winnerDiv = document.createElement('div');
-                winnerDiv.style.position = 'absolute';
-                winnerDiv.style.top = '50%';
-                winnerDiv.style.left = '50%';
-                winnerDiv.style.transform = 'translate(-50%, -50%)';
-                winnerDiv.style.padding = '20px';
-                winnerDiv.style.backgroundColor = 'white';
-                winnerDiv.style.border = '2px solid black';
-                winnerDiv.style.zIndex = '1000';
-                winnerDiv.innerHTML = `<h1>Player ${playerId} Won!</h1>`;
-
-                const closeButton = document.createElement('button');
-                closeButton.innerText = 'X';
-                closeButton.style.position = 'absolute';
-                closeButton.style.top = '-1px';
-                closeButton.style.right = '-1px';
-                closeButton.addEventListener('click', () => {
-                    document.body.removeChild(winnerDiv);
-                });
-
-                winnerDiv.appendChild(closeButton);
-                document.body.appendChild(winnerDiv);
+                let text = `<h1>Player ${playerId} Won!</h1>`;
+                DialogUtilities.showDialog(text,"We have a winner!");
             }
 
             function renderBots() {
                 for (const [id, [position, variant, current_energy, job, cargo, playerIndex]] of botMap.entries()) {
                     var playerNum = '';
-                    if (playerIndex == 0) {
-                        playerNum = 'One';
-                    } else {
-                        playerNum = 'Two';
-                    }
                     var element = String(variant) + playerNum;
-                    gameState[ROWS - position.y - 1][position.x] = elements[element];
+                    //create a mapping from bot variant and player index to gameState element
+                    // e.g. kMiningBot and playerIndex 0 -> 500
+                    // e.g. kFactoryBot and playerIndex 1 -> 503
+                    gameState[ROWS - position.y - 1][position.x] = BOT_START_IDX + playerIndex * 2 + (variant === 'kFactoryBot' ? 1 : 0);
                 }
             }
             //shows a row for each player showing each bot and their data
@@ -634,11 +646,11 @@ function drawGame(hostname, port) {
                         botDiv.classList.add('bot-info');
                         botDiv.style = "width: 14%, height: 24%";
                         botDiv.innerHTML = `
-                <h4 style="margin: 2px 0; padding: 0;"><b>${variant}</b> ${id}</h4>
+                <h4 style="margin: 2px 0; padding: 0;"><b>${NameMaps.mapName("variantMap", variant)}</b> ${id}</h4>
                 <hr style="margin: 2px 0;">
                 <p style="margin: 2px 0; padding: 0;"><b>Position:</b> ${position.x}, ${position.y}</p>
                 <p style="margin: 2px 0; padding: 0;"><b>Energy:</b> ${current_energy}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${job.action}</p> 
+                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p> 
                 <hr style="margin: 2px 0;">
             `;
 // , ${job.status}
@@ -676,6 +688,8 @@ function drawGame(hostname, port) {
             console.error("Error:", error);
         });
 }
-console.log(servers["localhost"].name);
-document.getElementById("navbarDropdownMenuLink").textContent = hostname !== null ? servers[hostname].name : "Choose a server";
-drawGame(hostname, port);
+if(hostname) {
+    console.log(servers[hostname].name);
+    document.getElementById("navbarDropdownMenuLink").textContent = servers[hostname].name;
+    drawGame(hostname, port);
+}
