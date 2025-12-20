@@ -115,7 +115,7 @@ var servers = {
 if(server && servers[server]) {
     let url=servers[server].url;
     if(url.indexOf(":")!=-1){
-        hostname = hostname.split(":")[0];
+        hostname = url.split(":")[0];
         port = url.split(":")[1];
     } else {
         hostname = url;
@@ -132,7 +132,7 @@ function populateDropdown() {
     let dropdownMenu = document.querySelector(".dropdown-menu");
     Object.keys(servers).forEach(function (key) {
         let server = servers[key];
-        let menuItem = `<a class="dropdown-item" href="#" data-url="${server.url}">${server.name}</a>`;
+        let menuItem = `<a class="dropdown-item" href="#" data-url="${key}">${server.name}</a>`;
         dropdownMenu.innerHTML += menuItem;
     });
 }
