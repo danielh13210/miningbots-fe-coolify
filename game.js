@@ -1,6 +1,8 @@
 import CookieUtilities from './scripts/utilities/cookie.js';
 import SettingsManager from './scripts/settings.js';
 import {in_private_scope} from './scripts/utilities/functools.js';
+import NameMaps from './scripts/ui/human_readable_names.js';
+import DialogUtilities from './scripts/ui/webdialog.js';
 
 console.log("script started");
 
@@ -123,6 +125,18 @@ var servers = in_private_scope(()=>{
   }
 });
 
+if(server && servers[server]) {
+    let url=servers[server].url;
+    if(url.indexOf(":")!=-1){
+        hostname = url.split(":")[0];
+        port = url.split(":")[1];
+    } else {
+        hostname = url;
+    }
+}else {
+    hostname = null;
+}
+
 // Variable to hold the selected server URL
 let selectedServerUrl = null;
 
@@ -161,8 +175,7 @@ document.addEventListener("DOMContentLoaded", function () {
             selectedServerUrl = this.getAttribute("data-url");
             console.log(selectedServerUrl);
             let selectedServerName = this.textContent;
-            document.getElementById("navbarDropdownMenuLink").textContent =
-                selectedServerName;
+            setServerName(selectedServerName);
             // Save to cookie first
             CookieUtilities.setCookie("lastServer", selectedServerUrl, CookieUtilities.never);
             location.reload();
@@ -197,35 +210,15 @@ function drawGame(hostname, port) {
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
     const GRID_SIZE = 32;
-    const images = {
-        kFactoryBot: new Image(),
-        kMiningBot: new Image(),
-        mixed_ore: new Image(),
-        granite: new Image(),
-        vibranium: new Image(),
-        adamantite: new Image(),
-        unobtanium: new Image(),
-    };
-    const terrainImages = {
-        unknown: new Image(),
-        grassland: new Image(),
-        hills: new Image(),
-        mountain: new Image()
-    };
-
-    //Assigns images
-    images.kFactoryBot.src = 'assets/Factory_Bot.png';
-    images.kMiningBot.src = 'assets/Mining_Bot.png';
-    images.mixed_ore.src = 'assets/Mixed_Ore.png';
-    images.granite.src = 'assets/Granite.png';
-    images.vibranium.src = 'assets/Vibranium.png';
-    images.adamantite.src = 'assets/Adamantite.png';
-    images.unobtanium.src = 'assets/Unobtanium.png';
-
-    terrainImages.unknown.src = 'assets/unknown.jpg';
-    terrainImages.grassland.src = 'assets/grassland.jpg';
-    terrainImages.hills.src = 'assets/hills.jpg';
-    terrainImages.mountain.src = 'assets/mountain.jpg';
+    const images = {};
+    images.kMiningBot = new Image();
+    images.kMiningBot.src = "assets/Mining_Bot.png";
+    images.kFactoryBot = new Image();
+    images.kFactoryBot.src = "assets/Factory_Bot.png";
+    images.mixed_ore = new Image();
+    images.mixed_ore.src = "assets/Mixed_Ore.png";
+    images.unknown = new Image();
+    let terrainImages={};
 
     //Likely connecting to the server and retrieving initial game state
     fetch(`${http_type}://${hostname}:${port}/games`, {
@@ -268,14 +261,30 @@ function drawGame(hostname, port) {
         .then(async result => {
             let map_config = await result.map_config;
             console.log('map_config:', map_config);
-            const screenWidth = window.innerWidth;
-            const screenHeight = window.innerHeight;
+            // rendring information
+
+            // browser window dimensions
+            var GRID_SIZE;
+            var screenWidth = window.innerWidth;
+            var screenHeight = window.innerHeight;
+            // map dimensions
             const COLS = map_config.max_x;
             const ROWS = map_config.max_y;
             const MAX_WHITE_WIDTH = 60;
             const MAX_WHITE_HEIGHT = 60;
             const borderWidth = 1;
-            const GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
+            updateDimensions(true);
+
+            let resizeTimeout = null;
+            window.addEventListener("resize",(_e)=>{
+                if(resizeTimeout) clearTimeout(resizeTimeout); // clear the timeout if it exists
+                resizeTimeout = setTimeout(()=>{
+                    updateDimensions();
+                    resizeTimeout=null;
+                },100);
+            });
+            const BOT_START_IDX = 500; //starting index for bot elements in gameState array, to avoid clashing with other element indices. Arbitrary.
+
 
             console.log(COLS);
 
@@ -287,24 +296,36 @@ function drawGame(hostname, port) {
             //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
             document.getElementById("game-info-container").style = "display: grid; grid-template-columns: " + canvas.width + "px " + (screenWidth - canvas.width) + "px"
 
-            //Allows the bot-info container to take up as much remaining space as possible (on the right; not any space of game canvas)
-            document.getElementById("bot-info-megacontainer").style.width = screenWidth - canvas.width + "px"
+            function updateDimensions(lazy_render) {
+                // browser window dimensions
+                screenWidth = window.innerWidth;
+                screenHeight = window.innerHeight;
+                GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
+                // Update canvas dimensions
+                canvas.width = COLS * GRID_SIZE;
+                canvas.height = ROWS * GRID_SIZE;
+                
+                updateSidebarDimensions();
+                if(!lazy_render) render();
+            }
 
             let resource_configs = map_config.resource_configs;
 
             const elements = {
-                kMiningBotOne: 0,
+                /*kMiningBotOne: 0,
                 kFactoryBotOne: 1,
                 kMiningBotTwo: 2,
-                kFactoryBotTwo: 3,
+                kFactoryBotTwo: 3,*/
                 unknown: 4,
                 traversable: 5,
                 resource: 6,
-                granite: 7,
+                /*granite: 7,
                 vibranium: 8,
                 adamantite: 9,
-                unobtanium: 10
+                unobtanium: 10*/
             };
+
+            const resource_element_start_idx = Math.max(...Object.values(elements))+1; //the index where resource elements start in the elements object
 
             const resources = {
 
@@ -313,11 +334,33 @@ function drawGame(hostname, port) {
             // let resource_configs = result.map_config.resource_configs;
             //Adds new game elements from resource_configs if they do not already exist
             resource_configs.forEach(resource => {
-                resources[Object.keys(resources).length] = resource.name;
+                resources[Object.keys(resources).length] = resource.name.toLowerCase();
+                elements[resource.name.toLowerCase()] = resource_element_start_idx + Object.keys(resources).length-1; 
+                images[resource.name.toLowerCase()] = new Image();
+                images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
+            });
+
+            function addTerrain(terrain_name){
+                terrainImages[terrain_name] = new Image();
+                terrainImages[terrain_name].src = 'assets/' + terrain_name + '.jpg';
+            }
+            //Adds new terrain images from terrain_configs
+            addTerrain('unknown'); //always have unknown terrain
+            map_config.terrain_configs.forEach(terrain => {
+                addTerrain(terrain.name.toLowerCase());
             });
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
-            let terrains = Array.from({ length: ROWS }, () => Array(COLS).fill(terrainImages.unknown)); //all squares are unknown at teh start
+            let terrains = Array.from({ length: ROWS }, () => Array(COLS).fill(terrainImages.unknown)); //all squares are unknown at the start
+
+            function updateSidebarDimensions() {
+                //Since final canvas dimensions are known, resize the container that holds canvas and DIV for bot-info DIVs
+                //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
+                document.getElementById("game-info-container").style.gridTemplateColumns = canvas.width + "px " + (screenWidth - canvas.width) + "px";
+
+                //Allows the bot-info container to take up as much remaining space as possible (on the right; not any space of game canvas)
+                document.getElementById("bot-info-megacontainer").style.width = screenWidth - canvas.width + "px";
+            }
 
             function drawASquare(c, r, background, image) {
                 ctx.drawImage(background, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
@@ -341,7 +384,7 @@ function drawGame(hostname, port) {
                         const element = gameState[row][col];
                         const terrain = terrains[row][col];
                         switch (element) {
-                            case elements.kFactoryBotOne: // Blue
+                            /*case elements.kFactoryBotOne: // Blue
                                 drawABot(col, row, '#25537b', images.kFactoryBot);
                                 //drawASquare(col, row, terrain, images.kFactoryBot);
                                 break;
@@ -356,7 +399,7 @@ function drawGame(hostname, port) {
                             case elements.kMiningBotTwo: // Red
                                 drawABot(col, row, '#AA4344', images.kMiningBot);
                                 //drawASquare(col, row, terrain, images.kMiningBot);
-                                break;
+                                break;*/
                             case elements.unknown:
                                 drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
                                 break;
@@ -366,7 +409,7 @@ function drawGame(hostname, port) {
                             case elements.resource:
                                 ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                                 break;
-                            case elements.granite:
+                            /*case elements.granite:
                                 drawASquare(col, row, terrain, images.granite);
                                 break;
                             case elements.vibranium:
@@ -377,7 +420,22 @@ function drawGame(hostname, port) {
                                 break;
                             case elements.unobtanium:
                                 drawASquare(col, row, terrain, images.unobtanium);
-                                break;
+                                break;*/
+                            default:
+                                if(element < BOT_START_IDX){
+                                    const resourceId = resources[element-resource_element_start_idx];
+                                    let image=images[resourceId.toLowerCase()];
+                                    if(image.complete && image.naturalHeight > 0){
+                                        drawASquare(col, row, terrain, image);
+                                    } else {
+                                        ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                                    }
+                                } else {
+                                    let playerIndex = Math.floor((element - BOT_START_IDX) / 2);
+                                    let variant = (element - BOT_START_IDX) % 2 === 0 ? 'kMiningBot' : 'kFactoryBot';
+                                    let color=colors[playerIndex];
+                                    drawABot(col, row, color, images[variant]);
+                                }
                         }
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
                             ctx.strokeStyle = 'white'; // set border color to white
@@ -450,14 +508,19 @@ function drawGame(hostname, port) {
             }
 
             //Sidebars has to be dynamically added if in the future you want >2 players
-            const sidebars = [document.getElementById('bot-sidebar-one'), document.getElementById('bot-sidebar-two')];
+            const sidebars = Array.from(document.querySelectorAll('div[id^="bot-sidebar-"]'));
             //Possibly add more colours for >2 players too
             const colors = ['blue', 'red', 'green', 'yellow', 'purple', 'orange', 'pink'];
 
             //Updates the bot's position and its job?
             function updateBot(botUpdate, playerId) {
-                if (!players.hasOwnProperty(playerId) && Object.keys(players).length < 2) {
+                if (!players.hasOwnProperty(playerId)) {
                     players[playerId] = Object.keys(players).length;
+                    let sidebar=document.createElement("div");
+                    sidebar.classList.add("sidebar");
+                    sidebar.id="bot-sidebar-"+(Object.keys(players).length);
+                    document.getElementById("bot-info-megacontainer").appendChild(sidebar);
+                    sidebars.push(sidebar);
                 }
                 const playerIndex = players[playerId];
 
@@ -500,7 +563,7 @@ function drawGame(hostname, port) {
             //Updates the state of a tile on the map
             function updateLand(data) {
                 const { position: { x, y }, is_traversable, resources, terrain_id } = data;
-                switch (terrain_id) {
+                /*switch (terrain_id) {
                     case 0:
                         terrains[ROWS - y - 1][x] = terrainImages.grassland;
                         break;
@@ -512,7 +575,12 @@ function drawGame(hostname, port) {
                         break;
                     default:
                         terrains[ROWS - y - 1][x] = terrainImages.unknown;
+                }*/
+                let terrain_name = 'unknown';
+                if(terrain_id < map_config.terrain_configs.length){
+                    terrain_name = map_config.terrain_configs[terrain_id].name.toLowerCase();
                 }
+                terrains[ROWS - y - 1][x] = terrainImages[terrain_name];
 
                 if (is_traversable) {
                     gameState[ROWS - y - 1][x] = elements.traversable;
@@ -525,7 +593,7 @@ function drawGame(hostname, port) {
                             }
                         })
 
-                        switch (highestId) {
+/*                        switch (highestId) {
                             case 0:
                                 gameState[ROWS - y - 1][x] = elements.granite;
                                 break;
@@ -541,6 +609,12 @@ function drawGame(hostname, port) {
                             default:
                                 gameState[ROWS - y - 1][x] = elements.resource;
                                 break;
+                        }*/
+                        // we have to use map_config because the resources is shadowed here
+                        if(map_config.resource_configs[highestId] !== undefined){
+                            gameState[ROWS - y - 1][x] = elements[map_config.resource_configs[highestId].name.toLowerCase()];
+                        } else {
+                            gameState[ROWS - y - 1][x] = elements.resource;
                         }
                     }
                 }
@@ -553,42 +627,20 @@ function drawGame(hostname, port) {
                 })
             }
 
-            //Just the win screen
+            //Display a dialog box in the middle of the screen indicating the winner
             function showWinner(playerId) {
-                const winnerDiv = document.createElement('div');
-                winnerDiv.style.position = 'absolute';
-                winnerDiv.style.top = '50%';
-                winnerDiv.style.left = '50%';
-                winnerDiv.style.transform = 'translate(-50%, -50%)';
-                winnerDiv.style.padding = '20px';
-                winnerDiv.style.backgroundColor = 'white';
-                winnerDiv.style.border = '2px solid black';
-                winnerDiv.style.zIndex = '1000';
-                winnerDiv.innerHTML = `<h1>Player ${playerId} Won!</h1>`;
-
-                const closeButton = document.createElement('button');
-                closeButton.innerText = 'X';
-                closeButton.style.position = 'absolute';
-                closeButton.style.top = '-1px';
-                closeButton.style.right = '-1px';
-                closeButton.addEventListener('click', () => {
-                    document.body.removeChild(winnerDiv);
-                });
-
-                winnerDiv.appendChild(closeButton);
-                document.body.appendChild(winnerDiv);
+                let text = `<h1>Player ${playerId} Won!</h1>`;
+                DialogUtilities.showDialog(text,"We have a winner!");
             }
 
             function renderBots() {
                 for (const [id, [position, variant, current_energy, job, cargo, playerIndex]] of botMap.entries()) {
                     var playerNum = '';
-                    if (playerIndex == 0) {
-                        playerNum = 'One';
-                    } else {
-                        playerNum = 'Two';
-                    }
                     var element = String(variant) + playerNum;
-                    gameState[ROWS - position.y - 1][position.x] = elements[element];
+                    //create a mapping from bot variant and player index to gameState element
+                    // e.g. kMiningBot and playerIndex 0 -> 500
+                    // e.g. kFactoryBot and playerIndex 1 -> 503
+                    gameState[ROWS - position.y - 1][position.x] = BOT_START_IDX + playerIndex * 2 + (variant === 'kFactoryBot' ? 1 : 0);
                 }
             }
             //shows a row for each player showing each bot and their data
@@ -634,11 +686,11 @@ function drawGame(hostname, port) {
                         botDiv.classList.add('bot-info');
                         botDiv.style = "width: 14%, height: 24%";
                         botDiv.innerHTML = `
-                <h4 style="margin: 2px 0; padding: 0;"><b>${variant}</b> ${id}</h4>
+                <h4 style="margin: 2px 0; padding: 0;"><b>${NameMaps.mapName("variantMap", variant)}</b> ${id}</h4>
                 <hr style="margin: 2px 0;">
                 <p style="margin: 2px 0; padding: 0;"><b>Position:</b> ${position.x}, ${position.y}</p>
                 <p style="margin: 2px 0; padding: 0;"><b>Energy:</b> ${current_energy}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${job.action}</p> 
+                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p> 
                 <hr style="margin: 2px 0;">
             `;
 // , ${job.status}
@@ -651,6 +703,7 @@ function drawGame(hostname, port) {
                         cargo.forEach(item => {
                             //Image of the mineral
                             let mineralImage = document.createElement('img')
+                            mineralImage.alt=mineralImage.title=map_config.resource_configs[item.id].name;
                             mineralImage.src = "./assets/" + String(resources[item.id]) + ".png"
                             mineralImage.style = "width: 1vw; height: 1vw"
                             cargoContainer.appendChild(mineralImage);
@@ -677,5 +730,7 @@ function drawGame(hostname, port) {
         });
 }
 console.log(servers["localhost"].name);
-document.getElementById("navbarDropdownMenuLink").textContent = hostname !== null ? servers[server].name : "Choose a server";
-drawGame(hostname, port);
+if (hostname !== null) {
+    setServerName(servers[hostname].name);
+    drawGame(hostname, port);
+}
