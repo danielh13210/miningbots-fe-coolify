@@ -621,12 +621,6 @@ function drawGame(hostname, port) {
                 renderBots();
             }
 
-            function nextGame() {
-                fetch(`${http_type}://${hostname}:${port}/games`, {
-                    method: 'GET'
-                })
-            }
-
             //Display a dialog box in the middle of the screen indicating the winner
             function showWinner(playerId) {
                 let text = `<h1>Player ${playerId} Won!</h1>`;
