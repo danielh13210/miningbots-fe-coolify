@@ -3,6 +3,7 @@ import SettingsManager from './scripts/settings.js';
 import {in_private_scope} from './scripts/utilities/functools.js';
 import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
+import LoadingBox from './scripts/ui/loadingbox.js';
 
 console.log("script started");
 
@@ -17,6 +18,12 @@ var hostname, port;
 var gameId;
 
 const CONFIG_=SettingsManager.read_settings_cookie();
+const GameUnvailableError = class extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "GameUnvailableError";
+    }
+}
 
 if (CONFIG_.require_security){
     var http_type = "https";
@@ -239,6 +246,7 @@ function drawGame(hostname, port) {
             let gameStatus = games[0].game_status;
             if (gameStatus == 'kEnded') {
                 console.log('failed to subscribe because game has ended');
+                throw new GameUnvailableError('Game has ended');
                 return;
             }
             let fetch_map_config = fetch(`${http_type}://${hostname}:${port}/map_config?game_id=${gameId}`, {
@@ -727,8 +735,14 @@ function drawGame(hostname, port) {
         })
         .catch((error) => {
             console.error("Error:", error);
+            if(error instanceof GameUnvailableError){
+                LoadingBox.setStatus(LoadingBox.Status.NO_GAME);
+            } else {
+                LoadingBox.setStatus(LoadingBox.Status.SERVER_UNAVAILABLE);
+            }
         });
 }
+LoadingBox.setStatus(LoadingBox.Status.LOADING);
 console.log(servers["localhost"].name);
 if (hostname !== null) {
     setServerName(servers[hostname].name);
