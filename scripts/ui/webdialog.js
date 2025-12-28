@@ -168,7 +168,7 @@ let DialogUtilities = {
     },
 }
 
-export { DialogUtilities };
+export default DialogUtilities;
 
 // add stylesheet
 document.head.innerHTML+=`<link rel="stylesheet" href="/styles/dialog.css">`;
