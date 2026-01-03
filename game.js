@@ -149,7 +149,7 @@ if(server && servers[server]){
         switch(servers[server].type){
             case "custom":
                 function empty_handler() {
-                    setServerName(servers[hostname].name.replace(/\.+$/, ""));
+                    setServerName(servers[server].name.replace(/\.+$/, ""));
                     LoadingBox.setStatus(LoadingBox.Status.SERVER_UNAVAILABLE);
                     setTimeout(NavigationManager.showNavigation,200);
                 }
