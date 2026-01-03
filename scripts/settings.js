@@ -96,7 +96,7 @@ SettingsManager.export_settings=function() {
 }
 
 SettingsManager.import_settings=function() {
-    let dialog=DialogUtilities.showDialog("After clicking OK, please select the settings.json file","Import Settings",[{text:"OK",action: ()=>{
+    let dialog=DialogUtilities.showDialog("After clicking OK, please select the settings.json file","Import Settings",null,[{text:"OK",action: ()=>{
         JSONDownloader.importJSON((json_string)=>{
             //confirmation dialog
             display_settings_(JSON.parse(json_string));
@@ -107,7 +107,7 @@ SettingsManager.import_settings=function() {
 
 SettingsManager.ClickHandlers = {
     reset_settings_clicked: function() {
-        DialogUtilities.showDialog("Are you sure you want to reset all settings to default? This will overwrite your current settings.","Reset Settings",[{"text":"OK","action":()=>{
+        DialogUtilities.showDialog("Are you sure you want to reset all settings to default? This will overwrite your current settings.","Reset Settings",null,[{"text":"OK","action":()=>{
             write_default_settings_(()=>{
                 window.opener.location.reload();
                 location.reload();
