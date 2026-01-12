@@ -55,8 +55,24 @@ body {
   font-size: 0.55vw;
 }
 
+#navbar-peek-triggerbox:hover + .navbar {
+  display: block !important;
+}
+
+#navbar-peek-triggerbox {
+  width: 100vw;
+  height: 20px; /* Adjust the height as needed */
+  position:fixed;
+  top:0;
+  left:0;
+}
+
 .navbar {
   padding-left: 1%;
+}
+
+.production-hidden:not(:hover):not(:focus-within) {
+  display: none;
 }
 
 a[role="button"] {
