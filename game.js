@@ -132,6 +132,7 @@ if(server && servers[server]) {
         port = url.split(":")[1];
     } else {
         hostname = url;
+        port = (servers[hostname].require_security || CONFIG_['require_security']) ? '443' : '80';
     }
 }else {
     hostname = null;
