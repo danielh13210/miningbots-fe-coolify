@@ -108,6 +108,21 @@ a[role="button"] svg:active {
   height: 30px;
 }
 
+#page-cover {
+  position:fixed;
+  width:100vw;
+  height:100vh;
+  left:0;
+  top:0;
+  background-color:white;
+  z-index: 1001;
+}
+
+#page-cover-content {
+  text-align:center;
+  user-select: none;
+}
+
 #accessibility-labels {
   display: none;
 }
