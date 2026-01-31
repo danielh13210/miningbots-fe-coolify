@@ -81,9 +81,25 @@
 
   <script src="game.js" type="module"></script>
   <script type="module">
+    import KeyboardUtilities from "/scripts/utilities/keyboard_utilities.js";
+    function setMnemonic(element, useSecondary, key,additional_key) {
+      let keyTag = KeyboardUtilities.joinMnemonic(useSecondary,key) + (additional_key ? ` or ${additional_key}` : '')
+      element.title += ` (${keyTag})`;
+      let describerId=`${element.id}-description`;
+      element.setAttribute("aria-labelledby", `${element.id}-label`);
+      document.getElementById(describerId).textContent = `Shortcut: (${keyTag})`;
+      element.setAttribute("aria-describedby", describerId);
+    }
+    setMnemonic(document.getElementById("settings-button"),true,'C');
+  </script>
+  <script type="module">
     import SettingsManager from "/scripts/settings.js";
     SettingsManager.initialize_main();
   </script>
+  <div id="accessibility-labels">
+    <span id="settings-button-label">Settings</span>
+    <span id="settings-button-description"></span>
+  </div>
 </body>
 
 </html>

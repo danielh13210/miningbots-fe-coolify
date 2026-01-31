@@ -107,3 +107,8 @@ a[role="button"] svg:active {
   margin-right: 10px;
   height: 30px;
 }
+
+
+#accessibility-labels {
+  display: none;
+}
