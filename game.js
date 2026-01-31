@@ -13,7 +13,7 @@ const server = CookieUtilities.getCookie("lastServer");
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
 var hostname, port;
-// if (server !== null) hostname = server; 
+// if (server !== null) hostname = server;
 var gameId;
 
 const CONFIG_=SettingsManager.read_settings_cookie();
@@ -22,7 +22,7 @@ if (CONFIG_.require_security){
     var http_type = "https";
     var ws_type = "wss";
 } else {
-    var http_type = "http"; 
+    var http_type = "http";
     var ws_type = "ws";
 }
 // var http_type = "https";
@@ -135,6 +135,7 @@ if(server && servers[server]){
     port = url.split(":")[1];
   } else {
     hostname = url;
+    port = (servers[hostname].require_security || CONFIG_['require_security']) ? '443' : '80';
   }
   if(servers[hostname].require_security) {
     http_type = "https";
@@ -172,7 +173,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 
-// Player Name fetch code 
+// Player Name fetch code
 async function fetchPlayerNames(gameId, playerIds) {
     const url = `${http_type}://${hostname}:${port}/players`;
     const playerRequest = { game_id: gameId, player_ids: playerIds };
@@ -323,7 +324,7 @@ function drawGame(hostname, port) {
             //Adds new game elements from resource_configs if they do not already exist
             resource_configs.forEach(resource => {
                 resources[Object.keys(resources).length] = resource.name.toLowerCase();
-                elements[resource.name.toLowerCase()] = resource_element_start_idx + Object.keys(resources).length-1; 
+                elements[resource.name.toLowerCase()] = resource_element_start_idx + Object.keys(resources).length-1;
                 images[resource.name.toLowerCase()] = new Image();
                 images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
             });
@@ -358,7 +359,7 @@ function drawGame(hostname, port) {
             }
 
             //this exists because the bots have a background colour that indicates the player they are attached to, instead of the terrain
-            //can remove this if the background is also changed to an image 
+            //can remove this if the background is also changed to an image
             function drawABot(c, r, colour, image) {
                 ctx.fillStyle = colour;
                 ctx.fillRect(c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
@@ -641,7 +642,7 @@ function drawGame(hostname, port) {
                 console.log('Current player ID:', player_id);
 
 
-                // Player names code: 
+                // Player names code:
                 let playerInfo = await fetchPlayerNames(gameId, [player_id]);
                 console.log(playerInfo);
                 // var name = playerInfo[0].name;
@@ -659,7 +660,7 @@ function drawGame(hostname, port) {
                 const header = document.createElement('h4');
                 header.textContent = `Player: ${player_id}`;
                 header.style.color = color;
-                header.style.fontSize = "0.8vw"; 
+                header.style.fontSize = "0.8vw";
                 header.style.margin = "0vw";
                 header.style.padding = "0.05vw";
                 sidebar.appendChild(header);
@@ -678,7 +679,7 @@ function drawGame(hostname, port) {
                 <hr style="margin: 2px 0;">
                 <p style="margin: 2px 0; padding: 0;"><b>Position:</b> ${position.x}, ${position.y}</p>
                 <p style="margin: 2px 0; padding: 0;"><b>Energy:</b> ${current_energy}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p> 
+                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p>
                 <hr style="margin: 2px 0;">
             `;
 // , ${job.status}
