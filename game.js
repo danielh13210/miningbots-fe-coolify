@@ -125,19 +125,6 @@ var servers = in_private_scope(()=>{
   }
 });
 
-if(server && servers[server]) {
-    let url=servers[server].url;
-    if(url.indexOf(":")!=-1){
-        hostname = url.split(":")[0];
-        port = url.split(":")[1];
-    } else {
-        hostname = url;
-        port = (servers[hostname].require_security || CONFIG_['require_security']) ? '443' : '80';
-    }
-}else {
-    hostname = null;
-}
-
 // Variable to hold the selected server URL
 let selectedServerUrl = null;
 
