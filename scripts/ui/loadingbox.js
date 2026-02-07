@@ -11,7 +11,9 @@ let LoadingBox = {
 document.head.insertAdjacentHTML("beforeend", `
 <link rel="stylesheet" href="/styles/loadingbox.css" type="text/css" />
 `);
-let LB_OBJECT_ = document.getElementById("loadingbox");
+let LB_OBJECT_=document.createElement("div");
+LB_OBJECT_.id="loadingbox";
+document.body.appendChild(LB_OBJECT_);
 LoadingBox.setStatus=function(status) {
     switch (status) {
         case LoadingBox.Status.LOADING_COMPLETED:
@@ -35,7 +37,7 @@ LoadingBox.setStatus=function(status) {
 
         case LoadingBox.Status.NO_INTERNET:
             LB_OBJECT_.innerHTML = "Please connect to the Internet";
-        
+
 
         default:
             break;
