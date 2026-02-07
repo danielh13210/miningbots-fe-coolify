@@ -17,10 +17,12 @@
   <link href="styles.css" rel="stylesheet" />
   <script src="/scripts/utilities/svgimporter.js" type="module"></script>
   <script src="/scripts/ui/server_text.js"></script>
+  <script src="/scripts/ui/hide_navbar.js" type="module"></script>
 </head>
 
 <body>
-  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <div id="navbar-peek-triggerbox"></div>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light competition-disabled">
     <img src="favicon.ico" class="navbar-brand-logo">
     <a class="navbar-brand" href="#">Mining Bots</a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"
@@ -40,7 +42,28 @@
         </li>
       </ul>
     </div>
+    <a role="button" title="Enter Competition Mode" onclick="CompetitionManager.toggleFullscreen()" id="fullscreen-button" helpon-available><svgfile id="fullscreen-icon" aria-hidden="true" src="/assets/ui/fullscreen.svg"></svgfile></a>
     <a role="button" title="Settings" onclick="SettingsManager.open_popup();" id="settings-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/settings.svg"></svgfile></a>
+    <script type="module">
+      import SVGImporter from "./scripts/utilities/svgimporter.js";
+      document.addEventListener('fullscreenchange', (event) => {
+        let title,icon;
+        if(document.fullscreenElement){
+          title="Exit Competition Mode";
+          icon="exit_fullscreen";
+        } else {
+          title="Enter Competition Mode";
+          icon="fullscreen";
+        }
+        document.getElementById("fullscreen-button").title=title;
+        let svgicon=document.createElement("svgfile");
+        svgicon.ariaHidden=true;
+        svgicon.id="fullscreen-icon";
+        svgicon.setAttribute("src",`/assets/ui/${icon}.svg`);
+        document.getElementById("fullscreen-icon").replaceWith(svgicon);
+        SVGImporter.reimport();
+      });
+    </script>
   </nav>
 
   <!--Allows the game canvas and a collection of players' bots to be aligned side-by-side horizontally-->
@@ -54,13 +77,37 @@
       <!-- <div class="sidebar" id="bot-sidebar-one"></div>
       <div class="sidebar" id="bot-sidebar-two"></div> -->
     </div>
+    <noscript id="page-cover">
+      <p id="page-cover-content">
+        JavaScript must be enabled to open this page.<br>
+        Once enabled, refresh the page.
+      <p>
+    </noscript>
   </div>
 
   <script src="game.js" type="module"></script>
   <script type="module">
+    import KeyboardUtilities from "/scripts/utilities/keyboard_utilities.js";
+    function setMnemonic(element, useSecondary, key,additional_key) {
+      let keyTag = KeyboardUtilities.joinMnemonic(useSecondary,key) + (additional_key ? ` or ${additional_key}` : '')
+      element.title += ` (${keyTag})`;
+      let describerId=`${element.id}-description`;
+      element.setAttribute("aria-labelledby", `${element.id}-label`);
+      document.getElementById(describerId).textContent = `Shortcut: (${keyTag})`;
+      element.setAttribute("aria-describedby", describerId);
+    }
+    setMnemonic(document.getElementById("settings-button"),true,'C');
+  </script>
+  <script type="module">
     import SettingsManager from "/scripts/settings.js";
     SettingsManager.initialize_main();
   </script>
+  <div id="accessibility-labels">
+    <span id="fullscreen-button-label">Toggle Competition Mode</span>
+    <span id="fullscreen-button-description"></span>
+    <span id="settings-button-label">Settings</span>
+    <span id="settings-button-description"></span>
+  </div>
 </body>
 
 </html>
