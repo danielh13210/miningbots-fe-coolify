@@ -66,7 +66,7 @@ function write_settings_(json_settings,complete_handler) {
     },10);
 }
 
-SettingsManager.dump_settings=function() {
+function dump_settings_() {
     let json_settings={};
     object_forEach(SettingsManager.settings,(key,setting)=>{
         if(!SettingsManager.is_value_forced(setting)){ // only store values that are not forced
@@ -81,7 +81,7 @@ SettingsManager.dump_settings=function() {
 }
 
 function write_displayed_settings_(complete_handler) {
-    let json_settings=SettingsManager.dump_settings();
+    let json_settings=dump_settings_();
     write_settings_(json_settings,complete_handler);
 }
 
@@ -90,8 +90,8 @@ function write_default_settings_(complete_handler) {
 }
 
 SettingsManager.export_settings=function() {
-    let json_settings=SettingsManager.dump_settings();
-    JSONDownloader.exportJSON(JSON.stringify(json_settings),"settings.json");
+    let json_settings=dump_settings_();
+    JSONDownloader.exportJSON(JSON.stringify(json_setings),"settings.json");
     alert("Settings exported to settings.json");
 }
 
