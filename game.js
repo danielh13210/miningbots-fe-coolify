@@ -310,6 +310,7 @@ function drawGame(hostname, port) {
 
             if (response.ok) {
                 console.log('Second fetch response:', response);
+                LoadingBox.setStatus(LoadingBox.Status.LOADING_COMPLETED);
                 return { map_config: response.json(), game_id: result.game_id };
             } else {
                 throw new Error(response.statusText);
@@ -362,7 +363,7 @@ function drawGame(hostname, port) {
                 // Update canvas dimensions
                 canvas.width = COLS * GRID_SIZE;
                 canvas.height = ROWS * GRID_SIZE;
-                
+
                 updateSidebarDimensions();
                 if(!lazy_render) render();
             }
