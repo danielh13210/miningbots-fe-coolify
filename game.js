@@ -208,6 +208,7 @@ if(server && servers[server]){
             port = (servers[hostname].require_security || CONFIG_['require_security']) ? '443' : '80';
         }
         set_protocols(servers[server].require_security);
+        setServerName(servers[hostname].name);
         main();
     }
 }
@@ -790,9 +791,7 @@ function drawGame(hostname, port) {
 function main(){
     LoadingBox.setStatus(LoadingBox.Status.LOADING);
     console.log(servers["localhost"].name);
-    // special servers set their name somewhere else
     if (hostname !== null) {
-        if(!servers[server].hasOwnProperty("type"))setServerName(servers[hostname].name);
         drawGame(hostname, port);
     }
 }
