@@ -1,0 +1,5 @@
+<script type="module">
+    import CookieUtilities from './scripts/utilities/cookie.js';
+    CookieUtilities.setCookie("lastServer",location.hash.substring(1),CookieUtilities.never,'/');
+    location.replace(location.origin);
+</script>
