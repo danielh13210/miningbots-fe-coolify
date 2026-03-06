@@ -150,7 +150,7 @@ var servers = in_private_scope(()=>{
 let selectedServerUrl = null;
 
 if(server && servers[server]){
-    setServerName(servers[server].name);
+    //setServerName(servers[server].name);
     const isSpecial=servers[server].hasOwnProperty("type");
     if(isSpecial){
         switch(servers[server].type){
@@ -176,7 +176,7 @@ if(server && servers[server]){
                             port=SocketUtilities.applyDefaultPort(is_secure_protocol?"https":"http",url.port);
                             set_protocols(is_secure_protocol);
                         });
-                        setServerName(servers["custom.invalid"].name.replace(/\.+$/, "")); // remove trailing dots
+                        //setServerName(servers["custom.invalid"].name.replace(/\.+$/, "")); // remove trailing dots
                         main();
                     } catch (e){
                         DialogUtilities.showDialog(`Error: ${e.message}`, "Error", empty_handler,[{text: "OK", action: ()=>{prompt_socket(socket)}}], "OK");
@@ -363,7 +363,7 @@ function drawGame(hostname, port) {
                 // Update canvas dimensions
                 canvas.width = COLS * GRID_SIZE;
                 canvas.height = ROWS * GRID_SIZE;
-                
+
                 updateSidebarDimensions();
                 if(!lazy_render) render();
             }
@@ -790,9 +790,9 @@ function drawGame(hostname, port) {
 function main(){
     LoadingBox.setStatus(LoadingBox.Status.LOADING);
     console.log(servers["localhost"].name);
-    // special servers set their name somewhere else
+    setServerName(hostname);
     if (hostname !== null) {
-        if(!servers[server].hasOwnProperty("type"))setServerName(servers[hostname].name);
+        //if(!servers[server].hasOwnProperty("type"))setServerName(servers[hostname].name);
         drawGame(hostname, port);
     }
 }
