@@ -1,5 +1,4 @@
 import CookieUtilities from './scripts/utilities/cookie.js';
-import SettingsManager from './scripts/settings.js';
 import SocketUtilities from './scripts/socketnames.js';
 import {in_private_scope,with_value} from './scripts/utilities/functools.js';
 import NameMaps from './scripts/ui/human_readable_names.js';
@@ -8,9 +7,6 @@ import LoadingBox from './scripts/ui/loadingbox.js';
 
 console.log("script started");
 
-// Get hostname from cookie, otherwise leave as null
-const server = CookieUtilities.getCookie("lastServer");
-
 //Probably some default values for original testing:
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
@@ -18,7 +14,6 @@ var hostname, port;
 // if (server !== null) hostname = server;
 var gameId;
 
-const CONFIG_=SettingsManager.read_settings_cookie();
 const GameUnvailableError = class extends Error {
     constructor(message) {
         super(message);
@@ -28,7 +23,7 @@ const GameUnvailableError = class extends Error {
 
 let http_type,ws_type;
 function set_protocols(upgrade_connection){
-    if (CONFIG_["require_security"] || upgrade_connection) {
+    if (upgrade_connection) {
         http_type = "https";
         ws_type = "wss";
     } else {
@@ -39,209 +34,27 @@ function set_protocols(upgrade_connection){
 // var http_type = "https";
 // var ws_type = "wss";
 
-//Dictionary of servers and respective names, urls
-var servers = in_private_scope(()=>{
-  let gport=CONFIG_.game_port;
-  let lport=CONFIG_.localhost_port;
-  let servers = {
-    "p1.bootcamp.tk.sg": {
-        name: "Game 1",
-        url: `p1.bootcamp.tk.sg:${gport}`,
-    },
-    "p2.bootcamp.tk.sg": {
-        name: "Game 2",
-        url: `p2.bootcamp.tk.sg:${gport}`,
-    },
-    "p3.bootcamp.tk.sg": {
-        name: "Game 3",
-        url: `p3.bootcamp.tk.sg:${gport}`,
-    },
-    "p4.bootcamp.tk.sg": {
-        name: "Game 4",
-        url: `p4.bootcamp.tk.sg:${gport}`,
-    },
-    "p5.bootcamp.tk.sg": {
-        name: "Game 5",
-        url: `p5.bootcamp.tk.sg:${gport}`,
-    },
-    "p6.bootcamp.tk.sg": {
-        name: "Game 6",
-        url: `p6.bootcamp.tk.sg:${gport}`,
-    },
-    "p7.bootcamp.tk.sg": {
-        name: "Main Game",
-        url: `p7.bootcamp.tk.sg:${gport}`,
-    },
-    "p8.bootcamp.tk.sg": {
-        name: "Game 8",
-        url: `p8.bootcamp.tk.sg:${gport}`,
-    },
-    "p9.bootcamp.tk.sg": {
-        name: "Game 9",
-        url: `p9.bootcamp.tk.sg:${gport}`,
-    },
-    "p10.bootcamp.tk.sg": {
-        name: "Game 10",
-        url: `p10.bootcamp.tk.sg:${gport}`,
-    },
-    "s1.bootcamp.tk.sg": {
-        name: "Staging 1",
-        url: `s1.bootcamp.tk.sg:${gport}`,
-    },
-    "s2.bootcamp.tk.sg": {
-        name: "Staging 2",
-        url: `s2.bootcamp.tk.sg:${gport}`,
-    },
-    "s3.bootcamp.tk.sg": {
-        name: "Staging 3",
-        url: `s3.bootcamp.tk.sg:${gport}`,
-    },
-    "s4.bootcamp.tk.sg": {
-        name: "Staging 4",
-        url: `s4.bootcamp.tk.sg:${gport}`,
-    },
-    "s5.bootcamp.tk.sg": {
-        name: "Staging 5",
-        url: `s5.bootcamp.tk.sg:${gport}`,
-    },
-    "s6.bootcamp.tk.sg": {
-        name: "Staging 6",
-        url: `s6.bootcamp.tk.sg:${gport}`,
-    },
-    "s7.bootcamp.tk.sg": {
-        name: "Staging 7",
-        url: `s7.bootcamp.tk.sg:${gport}`,
-    },
-    "s8.bootcamp.tk.sg": {
-        name: "Staging 8",
-        url: `s8.bootcamp.tk.sg:${gport}`,
-    },
-    "s9.bootcamp.tk.sg": {
-        name: "Staging 9",
-        url: `s9.bootcamp.tk.sg:${gport}`,
-    },
-    "s10.bootcamp.tk.sg": {
-        name: "Staging 10",
-        url: `s10.bootcamp.tk.sg:${gport}`,
-    },
-    "current.invalid": {
-        name: "Front-end Host",
-        type: "fe_host"
-    },
-    "localhost": {
-        name: "localhost",
-        url: `localhost:${lport}`,
-    },
-    "miningbots-api.dev.tk.sg": {
-        name: "miningbots-api.dev.tk.sg",
-        url: "miningbots-api.dev.tk.sg",
-        require_security: true,
-    },
-    "custom.invalid": { // invalid special domain by IANA
-        name: "Custom / Other server...",
-        type: "custom"
-    }
-  }
-  servers["current.invalid"].require_security=servers["localhost"].require_security;
-  return servers;
-});
-
 // Variable to hold the selected server URL
 let selectedServerUrl = null;
 
-if(server && servers[server]){
-    //setServerName(servers[server].name);
-    const isSpecial=servers[server].hasOwnProperty("type");
-    if(isSpecial){
-        switch(servers[server].type){
-            case "custom":
-                function empty_handler() {
-                    setServerName(servers[server].name.replace(/\.+$/, ""));
-                    LoadingBox.setStatus(LoadingBox.Status.SERVER_UNAVAILABLE);
-                    setTimeout(NavigationManager.showNavigation,200);
-                }
-                function prompt_socket(previous_socket) {
-                    DialogUtilities.prompt("Please enter the socket URL for the custom server:", "Socket URL", previous_socket, socket_obtained, empty_handler);
-                }
-                function socket_obtained(socket) {
-                    socket = socket.trim();
-                    try {
-                        if(socket.length==0) throw new Error("Socket URL cannot be empty");
-                        const url=SocketUtilities.breakUpSocket(socket);
-                        hostname = url.hostname;
-                        CookieUtilities.setCookie("custom_server",socket,"Fri, 31 Dec 9999 23:59:59 GMT",'/')
-                        console.log("URL: " + socket);
-                        let protocol=url.protocol.substring(0,url.protocol.length-1);
-                        with_value((protocol=="https"||protocol=="wss")||CONFIG_["require_security"],(is_secure_protocol)=>{
-                            port=SocketUtilities.applyDefaultPort(is_secure_protocol?"https":"http",url.port);
-                            set_protocols(is_secure_protocol);
-                        });
-                        //setServerName(servers["custom.invalid"].name.replace(/\.+$/, "")); // remove trailing dots
-                        main();
-                    } catch (e){
-                        DialogUtilities.showDialog(`Error: ${e.message}`, "Error", empty_handler,[{text: "OK", action: ()=>{prompt_socket(socket)}}], "OK");
-                    }
-                }
-                let socket=CookieUtilities.getCookie("custom_server");
-                if(socket && SocketUtilities.isValidSocket(socket)) {
-                    socket_obtained(socket);
-                } else {
-                    //else prompt the user for the socket
-                    // "" is so that the field is empty by default
-                    prompt_socket("");
-                }
-                break;
-            case "fe_host":
-                hostname=location.hostname;
-                port=CONFIG_["localhost_port"];
-                set_protocols(servers["localhost"].require_security);
-                main();
-                break;
-        }
-    } else {
-        let url=servers[server].url;
-        if(url.indexOf(":")!=-1){
-            hostname = url.split(":")[0];
-            port = url.split(":")[1];
-        } else {
-            hostname = url;
-            port = (servers[hostname].require_security || CONFIG_['require_security']) ? '443' : '80';
-        }
-        set_protocols(servers[server].require_security);
-        main();
-    }
+function socket_obtained(socket) {
+    socket = socket.trim();
+    if(socket.length==0) throw new Error("Socket URL cannot be empty");
+    const url=SocketUtilities.breakUpSocket(socket);
+    hostname = url.hostname;
+    CookieUtilities.setCookie("custom_server",socket,"Fri, 31 Dec 9999 23:59:59 GMT",'/')
+    console.log("URL: " + socket);
+    let protocol=url.protocol.substring(0,url.protocol.length-1);
+    with_value((protocol=="https"||protocol=="wss"),(is_secure_protocol)=>{
+        port=SocketUtilities.applyDefaultPort(is_secure_protocol?"https":"http",url.port);
+        set_protocols(is_secure_protocol);
+    });
+    //setServerName(servers["custom.invalid"].name.replace(/\.+$/, "")); // remove trailing dots
+    main();
 }
 
-// Function to populate the dropdown menu
-function populateDropdown() {
-    let dropdownMenu = document.querySelector(".dropdown-menu");
-    Object.keys(servers).forEach(function (key) {
-        let server = servers[key];
-        let menuItem = `<a class="dropdown-item" href="#" data-url="${key}">${server.name}</a>`;
-        dropdownMenu.innerHTML += menuItem;
-    });
-}
-
-// Event listener for dropdown item click
-document.addEventListener("DOMContentLoaded", function () {
-    populateDropdown();
-
-    let dropdownItems = document.querySelectorAll(".dropdown-item");
-    dropdownItems.forEach(function (item) {
-        item.addEventListener("click", function (event) {
-            event.preventDefault();
-            selectedServerUrl = this.getAttribute("data-url");
-            console.log(selectedServerUrl);
-            let selectedServerName = this.textContent;
-            setServerName(selectedServerName);
-            // Save to cookie first
-            CookieUtilities.setCookie("lastServer", selectedServerUrl, CookieUtilities.never);
-            CookieUtilities.deleteCookie("custom_server",'/');
-            location.reload();
-            // drawGame(selectedServerUrl, port);
-        });
-    });
-});
+let config=new URL(location.href).searchParams;
+socket_obtained(config.get('url'));
 
 // Player Name fetch code
 async function fetchPlayerNames(gameId, playerIds) {
@@ -516,7 +329,7 @@ function drawGame(hostname, port) {
 
             ws.onopen = function () {
                 console.log('Connected to WebSocket server');
-                const subscribeRequest = JSON.stringify({ game_id: result.game_id, observer_key: CONFIG_.observer_key, observer_name: 'Observer' });
+                const subscribeRequest = JSON.stringify({ game_id: result.game_id, observer_key: config.observer_key, observer_name: 'Observer' });
                 ws.send(subscribeRequest);
             };
 
@@ -789,7 +602,6 @@ function drawGame(hostname, port) {
 }
 function main(){
     LoadingBox.setStatus(LoadingBox.Status.LOADING);
-    console.log(servers["localhost"].name);
     setServerName(hostname);
     if (hostname !== null) {
         //if(!servers[server].hasOwnProperty("type"))setServerName(servers[hostname].name);

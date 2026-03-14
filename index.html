@@ -25,25 +25,10 @@
   <nav class="navbar navbar-expand-lg navbar-light bg-light competition-disabled">
     <img src="favicon.ico" class="navbar-brand-logo">
     <a class="navbar-brand" href="#">Mining Bots</a>
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"
-      aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation" onclick="event.stopPropagation();NavigationManager.toggleNavigation();">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="navbar-collapse" id="navbarNavDropdown">
-      <ul class="navbar-nav">
-        <li class="nav-item dropdown">
-          <a class="collapse-if-minified nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button"
-            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            Select a server
-          </a>
-          <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-            <!-- Dropdown items will be dynamically populated -->
-          </div>
-        </li>
-      </ul>
-    </div>
+    <a class="collapse-if-minified navbar-collapse nav-link" id="navbarDropdownMenuLink">
+      Select a server
+    </a>
     <a role="button" title="Enter Competition Mode" onclick="CompetitionManager.toggleFullscreen()" id="fullscreen-button" helpon-available><svgfile id="fullscreen-icon" aria-hidden="true" src="/assets/ui/fullscreen.svg"></svgfile></a>
-    <a role="button" title="Settings" onclick="SettingsManager.open_popup();" id="settings-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/settings.svg"></svgfile></a>
     <script type="module">
       import SVGImporter from "./scripts/utilities/svgimporter.js";
       document.addEventListener('fullscreenchange', (event) => {
@@ -86,27 +71,9 @@
   </div>
 
   <script src="game.js" type="module"></script>
-  <script type="module">
-    import KeyboardUtilities from "/scripts/utilities/keyboard_utilities.js";
-    function setMnemonic(element, useSecondary, key,additional_key) {
-      let keyTag = KeyboardUtilities.joinMnemonic(useSecondary,key) + (additional_key ? ` or ${additional_key}` : '')
-      element.title += ` (${keyTag})`;
-      let describerId=`${element.id}-description`;
-      element.setAttribute("aria-labelledby", `${element.id}-label`);
-      document.getElementById(describerId).textContent = `Shortcut: (${keyTag})`;
-      element.setAttribute("aria-describedby", describerId);
-    }
-    setMnemonic(document.getElementById("settings-button"),true,'C');
-  </script>
-  <script type="module">
-    import SettingsManager from "/scripts/settings.js";
-    SettingsManager.initialize_main();
-  </script>
   <div id="accessibility-labels">
     <span id="fullscreen-button-label">Toggle Competition Mode</span>
     <span id="fullscreen-button-description"></span>
-    <span id="settings-button-label">Settings</span>
-    <span id="settings-button-description"></span>
   </div>
 </body>
 
