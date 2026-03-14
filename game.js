@@ -602,7 +602,7 @@ function drawGame(hostname, port) {
 }
 function main(){
     LoadingBox.setStatus(LoadingBox.Status.LOADING);
-    setServerName(hostname);
+    setServerName(config.get("instance_name") || hostname);
     if (hostname !== null) {
         //if(!servers[server].hasOwnProperty("type"))setServerName(servers[hostname].name);
         drawGame(hostname, port);
