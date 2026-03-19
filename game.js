@@ -1,4 +1,3 @@
-import CookieUtilities from './scripts/utilities/cookie.js';
 import SocketUtilities from './scripts/socketnames.js';
 import {in_private_scope,with_value} from './scripts/utilities/functools.js';
 import NameMaps from './scripts/ui/human_readable_names.js';
@@ -42,7 +41,6 @@ function socket_obtained(socket) {
     if(socket.length==0) throw new Error("Socket URL cannot be empty");
     const url=SocketUtilities.breakUpSocket(socket);
     hostname = url.hostname;
-    CookieUtilities.setCookie("custom_server",socket,"Fri, 31 Dec 9999 23:59:59 GMT",'/')
     console.log("URL: " + socket);
     let protocol=url.protocol.substring(0,url.protocol.length-1);
     with_value((protocol=="https"||protocol=="wss"),(is_secure_protocol)=>{
