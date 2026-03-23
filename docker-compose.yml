@@ -3,3 +3,8 @@ services:
     image: miningbots-frontend-server
     build: .
     container_name: miningbots-frontend-server
+    healthcheck:
+      test: ["CMD-SHELL","wget -qO- http://localhost/healthcheck.txt | grep '^healthy$'"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
