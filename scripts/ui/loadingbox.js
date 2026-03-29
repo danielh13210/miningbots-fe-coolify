@@ -27,7 +27,7 @@ LoadingBox.setStatus=function(status) {
             break;
 
         case LoadingBox.Status.SERVER_UNAVAILABLE:
-            LB_OBJECT_.innerHTML = "Please select another server from the Server Selector";
+            LB_OBJECT_.innerHTML = "The current instance is not available";
             break;
 
         case LoadingBox.Status.NO_INTERNET:
