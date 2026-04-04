@@ -563,7 +563,7 @@ function drawGame(hostname, port) {
                                 break;
                         }
                     }
-                    if (typeof msg.data === 'Blob') {
+                    if (msg.data instanceof Blob) {
                         msg.data.text().then(text => parse_callback(text));
                     } else if (typeof msg.data === 'string') {
                         parse_callback(msg.data);
