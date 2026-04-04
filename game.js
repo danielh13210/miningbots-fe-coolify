@@ -150,9 +150,9 @@ var servers = in_private_scope(()=>{
 let selectedServerUrl = null;
 
 if(server && servers[server]){
-    setServerName(servers[server].name);
     const isSpecial=servers[server].hasOwnProperty("type");
     if(isSpecial){
+        setServerName(servers[server].name);
         switch(servers[server].type){
             case "custom":
                 function empty_handler() {
