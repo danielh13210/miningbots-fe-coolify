@@ -8,7 +8,7 @@ let ModeManager = {
   }
 };
 document.addEventListener('fullscreenchange', (event) => {
-  ModeManager=!!document.fullscreenElement;
+  ModeManager.IS_PRODUCTION_MODE=!!document.fullscreenElement;
 });
 
 window.CompetitionManager=ModeManager;
