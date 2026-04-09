@@ -35,3 +35,11 @@ p1.bootcamp.tk.sg {
 	}
 }
 ```
+
+### Query parameters
+
+The following query parameters are to be used with this web application to connect to a server
+
++ ```url```: url of the server (*Required*)
++ ```observer_key```: Observer key (*Required*)
++ ```instance_name```: Replace the hostname in the title with the instance name

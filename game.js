@@ -52,7 +52,11 @@ function socket_obtained(socket) {
 }
 
 let config=new URL(location.href).searchParams;
-socket_obtained(config.get('url'));
+if (!(config.has('url') && config.has('observer_key')))
+    LoadingBox.setStatus(LoadingBox.Status.MISSING_QUERY_PARAMS);
+else {
+    socket_obtained(config.get('url'));
+}
 
 // Player Name fetch code
 async function fetchPlayerNames(gameId, playerIds) {

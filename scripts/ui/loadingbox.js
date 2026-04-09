@@ -5,7 +5,8 @@ let LoadingBox = {
         SERVER_UNAVAILABLE: 2,
         NO_INTERNET: 3,
         SERVER_NO_SELECTION: 4,
-        NO_GAME: 5
+        NO_GAME: 5,
+        MISSING_QUERY_PARAMS: 6
     }
 }
 document.head.insertAdjacentHTML("beforeend", `
@@ -37,7 +38,8 @@ LoadingBox.setStatus=function(status) {
             LB_OBJECT_.innerHTML = "No active games are available on the server";
             LB_OBJECT_.classList.remove("loading-completed");
             break;
-
+        case LoadingBox.Status.MISSING_QUERY_PARAMS:
+            LB_OBJECT_.innerHTML = "Required query parameters are missing, please set them as in the README.md"
 
         default:
             break;
