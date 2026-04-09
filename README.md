@@ -36,7 +36,7 @@ p1.bootcamp.tk.sg {
 }
 ```
 
-### Query parameters
+## Query parameters
 
 The following query parameters are to be used with this web application to connect to a server
 
