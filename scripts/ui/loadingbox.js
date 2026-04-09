@@ -39,7 +39,7 @@ LoadingBox.setStatus=function(status) {
             LB_OBJECT_.classList.remove("loading-completed");
             break;
         case LoadingBox.Status.MISSING_QUERY_PARAMS:
-            LB_OBJECT_.innerHTML = "Required query parameters are missing, please set them as in the README.md"
+            LB_OBJECT_.innerHTML = "Required query parameters are missing, please set them as in the&nbsp;<a href=\"https://github.com/danielh13210/miningbots-fe-coolify/wiki/Query-parameters\" target=\"_blank\">wiki</a>";
 
         default:
             break;
