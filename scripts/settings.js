@@ -81,6 +81,7 @@ function dump_settings_() {
 }
 
 function write_displayed_settings_(complete_handler) {
+    if(!document.getElementById("settings-megacontainer").reportValidity())return; // an error occured with the form
     let json_settings=dump_settings_();
     write_settings_(json_settings,complete_handler);
 }
