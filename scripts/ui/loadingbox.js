@@ -24,7 +24,7 @@ LoadingBox.setStatus=function(status) {
             break;
 
         case LoadingBox.Status.LOADING:
-            LB_OBJECT_.innerHTML = "Please wait while we connect to the selected server";
+            LB_OBJECT_.innerHTML = "Please wait while we connect to the server";
             break;
 
         case LoadingBox.Status.SERVER_UNAVAILABLE:
