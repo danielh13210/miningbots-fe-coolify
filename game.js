@@ -1,8 +1,10 @@
 import CookieUtilities from './scripts/utilities/cookie.js';
 import SettingsManager from './scripts/settings.js';
-import {in_private_scope} from './scripts/utilities/functools.js';
+import SocketUtilities from './scripts/socketnames.js';
+import {in_private_scope,with_value} from './scripts/utilities/functools.js';
 import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
+import LoadingBox from './scripts/ui/loadingbox.js';
 
 console.log("script started");
 
@@ -13,17 +15,26 @@ const server = CookieUtilities.getCookie("lastServer");
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
 var hostname, port;
-// if (server !== null) hostname = server; 
+// if (server !== null) hostname = server;
 var gameId;
 
 const CONFIG_=SettingsManager.read_settings_cookie();
+const GameUnvailableError = class extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "GameUnvailableError";
+    }
+}
 
-if (CONFIG_.require_security){
-    var http_type = "https";
-    var ws_type = "wss";
-} else {
-    var http_type = "http"; 
-    var ws_type = "ws";
+let http_type,ws_type;
+function set_protocols(upgrade_connection){
+    if (CONFIG_["require_security"] || upgrade_connection) {
+        http_type = "https";
+        ws_type = "wss";
+    } else {
+        http_type = "http";
+        ws_type = "ws";
+    }
 }
 // var http_type = "https";
 // var ws_type = "wss";
@@ -32,7 +43,7 @@ if (CONFIG_.require_security){
 var servers = in_private_scope(()=>{
   let gport=CONFIG_.game_port;
   let lport=CONFIG_.localhost_port;
-  return {
+  let servers = {
     "p1.bootcamp.tk.sg": {
         name: "Game 1",
         url: `p1.bootcamp.tk.sg:${gport}`,
@@ -113,6 +124,10 @@ var servers = in_private_scope(()=>{
         name: "Staging 10",
         url: `s10.bootcamp.tk.sg:${gport}`,
     },
+    "current.invalid": {
+        name: "Front-end Host",
+        type: "fe_host"
+    },
     "localhost": {
         name: "localhost",
         url: `localhost:${lport}`,
@@ -121,37 +136,81 @@ var servers = in_private_scope(()=>{
         name: "miningbots-api.dev.tk.sg",
         url: "miningbots-api.dev.tk.sg",
         require_security: true,
+    },
+    "custom.invalid": { // invalid special domain by IANA
+        name: "Custom / Other server...",
+        type: "custom"
     }
   }
+  servers["current.invalid"].require_security=servers["localhost"].require_security;
+  return servers;
 });
-
-if(server && servers[server]) {
-    let url=servers[server].url;
-    if(url.indexOf(":")!=-1){
-        hostname = url.split(":")[0];
-        port = url.split(":")[1];
-    } else {
-        hostname = url;
-    }
-}else {
-    hostname = null;
-}
 
 // Variable to hold the selected server URL
 let selectedServerUrl = null;
 
 if(server && servers[server]){
-  let url=servers[server].url;
-  if(url.indexOf(":")!=-1){
-    hostname = url.split(":")[0];
-    port = url.split(":")[1];
-  } else {
-    hostname = url;
-  }
-  if(servers[hostname].require_security) {
-    http_type = "https";
-    ws_type = "wss";
-  }
+    const isSpecial=servers[server].hasOwnProperty("type");
+    if(isSpecial){
+        setServerName(servers[server].name);
+        switch(servers[server].type){
+            case "custom":
+                function empty_handler() {
+                    setServerName(servers[server].name.replace(/\.+$/, ""));
+                    LoadingBox.setStatus(LoadingBox.Status.SERVER_UNAVAILABLE);
+                    setTimeout(NavigationManager.showNavigation,200);
+                }
+                function prompt_socket(previous_socket) {
+                    DialogUtilities.prompt("Please enter the socket URL for the custom server:", "Socket URL", previous_socket, socket_obtained, empty_handler);
+                }
+                function socket_obtained(socket) {
+                    socket = socket.trim();
+                    try {
+                        if(socket.length==0) throw new Error("Socket URL cannot be empty");
+                        const url=SocketUtilities.breakUpSocket(socket);
+                        hostname = url.hostname;
+                        CookieUtilities.setCookie("custom_server",socket,"Fri, 31 Dec 9999 23:59:59 GMT",'/')
+                        console.log("URL: " + socket);
+                        let protocol=url.protocol.substring(0,url.protocol.length-1);
+                        with_value((protocol=="https"||protocol=="wss")||CONFIG_["require_security"],(is_secure_protocol)=>{
+                            port=SocketUtilities.applyDefaultPort(is_secure_protocol?"https":"http",url.port);
+                            set_protocols(is_secure_protocol);
+                        });
+                        setServerName(servers["custom.invalid"].name.replace(/\.+$/, "")); // remove trailing dots
+                        main();
+                    } catch (e){
+                        DialogUtilities.showDialog(`Error: ${e.message}`, "Error", empty_handler,[{text: "OK", action: ()=>{prompt_socket(socket)}}], "OK");
+                    }
+                }
+                let socket=CookieUtilities.getCookie("custom_server");
+                if(socket && SocketUtilities.isValidSocket(socket)) {
+                    socket_obtained(socket);
+                } else {
+                    //else prompt the user for the socket
+                    // "" is so that the field is empty by default
+                    prompt_socket("");
+                }
+                break;
+            case "fe_host":
+                hostname=location.hostname;
+                port=CONFIG_["localhost_port"];
+                set_protocols(servers["localhost"].require_security);
+                main();
+                break;
+        }
+    } else {
+        let url=servers[server].url;
+        if(url.indexOf(":")!=-1){
+            hostname = url.split(":")[0];
+            port = url.split(":")[1];
+        } else {
+            hostname = url;
+            port = (servers[hostname].require_security || CONFIG_['require_security']) ? '443' : '80';
+        }
+        set_protocols(servers[server].require_security);
+        setServerName(servers[hostname].name);
+        main();
+    }
 }
 
 // Function to populate the dropdown menu
@@ -178,13 +237,14 @@ document.addEventListener("DOMContentLoaded", function () {
             setServerName(selectedServerName);
             // Save to cookie first
             CookieUtilities.setCookie("lastServer", selectedServerUrl, CookieUtilities.never);
+            CookieUtilities.deleteCookie("custom_server",'/');
             location.reload();
             // drawGame(selectedServerUrl, port);
         });
     });
 });
 
-// Player Name fetch code 
+// Player Name fetch code
 async function fetchPlayerNames(gameId, playerIds) {
     const url = `${http_type}://${hostname}:${port}/players`;
     const playerRequest = { game_id: gameId, player_ids: playerIds };
@@ -209,7 +269,6 @@ function drawGame(hostname, port) {
     const ctx = canvas.getContext("2d");
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
-    const GRID_SIZE = 32;
     const images = {};
     images.kMiningBot = new Image();
     images.kMiningBot.src = "assets/Mining_Bot.png";
@@ -239,6 +298,7 @@ function drawGame(hostname, port) {
             let gameStatus = games[0].game_status;
             if (gameStatus == 'kEnded') {
                 console.log('failed to subscribe because game has ended');
+                throw new GameUnvailableError('Game has ended');
                 return;
             }
             let fetch_map_config = fetch(`${http_type}://${hostname}:${port}/map_config?game_id=${gameId}`, {
@@ -252,6 +312,7 @@ function drawGame(hostname, port) {
 
             if (response.ok) {
                 console.log('Second fetch response:', response);
+                LoadingBox.setStatus(LoadingBox.Status.LOADING_COMPLETED);
                 return { map_config: response.json(), game_id: result.game_id };
             } else {
                 throw new Error(response.statusText);
@@ -304,7 +365,7 @@ function drawGame(hostname, port) {
                 // Update canvas dimensions
                 canvas.width = COLS * GRID_SIZE;
                 canvas.height = ROWS * GRID_SIZE;
-                
+
                 updateSidebarDimensions();
                 if(!lazy_render) render();
             }
@@ -335,7 +396,7 @@ function drawGame(hostname, port) {
             //Adds new game elements from resource_configs if they do not already exist
             resource_configs.forEach(resource => {
                 resources[Object.keys(resources).length] = resource.name.toLowerCase();
-                elements[resource.name.toLowerCase()] = resource_element_start_idx + Object.keys(resources).length-1; 
+                elements[resource.name.toLowerCase()] = resource_element_start_idx + Object.keys(resources).length-1;
                 images[resource.name.toLowerCase()] = new Image();
                 images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
             });
@@ -370,7 +431,7 @@ function drawGame(hostname, port) {
             }
 
             //this exists because the bots have a background colour that indicates the player they are attached to, instead of the terrain
-            //can remove this if the background is also changed to an image 
+            //can remove this if the background is also changed to an image
             function drawABot(c, r, colour, image) {
                 ctx.fillStyle = colour;
                 ctx.fillRect(c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
@@ -465,42 +526,49 @@ function drawGame(hostname, port) {
             ws.onmessage = function (msg) {
                 console.log('before parse:', msg);
                 try {
-                    const data = JSON.parse(msg.data);
-                    console.log('after parse:', data);
-                    switch (data.update_type) {
-                        case 'kTickUpdate':
-                            console.log('tick update: ', data)
-                            if (Array.isArray(data.bot_updates)) {
-                                data.bot_updates.forEach(botUpdate => {
-                                    console.log('botUpdate: ', botUpdate);
-                                    updateBot(botUpdate, data.player_id);
-                                })
-                            }
-                            if (Array.isArray(data.job_updates)) {
-                                data.job_updates.forEach(jobUpdate => {
-                                    console.log('jobUpdate: ', jobUpdate);
-                                    updateJob(jobUpdate);
-                                })
-                            }
-                            if (Array.isArray(data.land_updates)) {
-                                data.land_updates.forEach(landUpdate => {
-                                    console.log('landUpdate: ', landUpdate);
-                                    updateLand(landUpdate);
-                                })
-                            }
-                            updateUI(data.player_id);
-                            render();
-                            break;
-                        case 'kEndInWin':
-                            console.log(`game ended player id ${data.player_id} won`);
-                            showWinner(data.player_id);
-                            break;
-                        case 'kEndInDraw':
-                            console.log('game ended in draw');
-                            break;
-                        default:
-                            console.log(data.UpdateType);
-                            break;
+                    function parse_callback(json_string){
+                        const data = JSON.parse(json_string);
+                        console.log('after parse:', data);
+                        switch (data.update_type) {
+                            case 'kTickUpdate':
+                                console.log('tick update: ', data)
+                                if (Array.isArray(data.bot_updates)) {
+                                    data.bot_updates.forEach(botUpdate => {
+                                        console.log('botUpdate: ', botUpdate);
+                                        updateBot(botUpdate, data.player_id);
+                                    })
+                                }
+                                if (Array.isArray(data.job_updates)) {
+                                    data.job_updates.forEach(jobUpdate => {
+                                        console.log('jobUpdate: ', jobUpdate);
+                                        updateJob(jobUpdate);
+                                    })
+                                }
+                                if (Array.isArray(data.land_updates)) {
+                                    data.land_updates.forEach(landUpdate => {
+                                        console.log('landUpdate: ', landUpdate);
+                                        updateLand(landUpdate);
+                                    })
+                                }
+                                updateUI(data.player_id);
+                                render();
+                                break;
+                            case 'kEndInWin':
+                                console.log(`game ended player id ${data.player_id} won`);
+                                showWinner(data.player_id);
+                                break;
+                            case 'kEndInDraw':
+                                console.log('game ended in draw');
+                                break;
+                            default:
+                                console.log(data.UpdateType);
+                                break;
+                        }
+                    }
+                    if (msg.data instanceof Blob) {
+                        msg.data.text().then(text => parse_callback(text));
+                    } else if (typeof msg.data === 'string') {
+                        parse_callback(msg.data);
                     }
                 } catch (error) {
                     console.error('Error parsing message:', error);
@@ -621,12 +689,6 @@ function drawGame(hostname, port) {
                 renderBots();
             }
 
-            function nextGame() {
-                fetch(`${http_type}://${hostname}:${port}/games`, {
-                    method: 'GET'
-                })
-            }
-
             //Display a dialog box in the middle of the screen indicating the winner
             function showWinner(playerId) {
                 let text = `<h1>Player ${playerId} Won!</h1>`;
@@ -653,7 +715,7 @@ function drawGame(hostname, port) {
                 console.log('Current player ID:', player_id);
 
 
-                // Player names code: 
+                // Player names code:
                 let playerInfo = await fetchPlayerNames(gameId, [player_id]);
                 console.log(playerInfo);
                 // var name = playerInfo[0].name;
@@ -671,7 +733,7 @@ function drawGame(hostname, port) {
                 const header = document.createElement('h4');
                 header.textContent = `Player: ${player_id}`;
                 header.style.color = color;
-                header.style.fontSize = "0.8vw"; 
+                header.style.fontSize = "0.8vw";
                 header.style.margin = "0vw";
                 header.style.padding = "0.05vw";
                 sidebar.appendChild(header);
@@ -690,7 +752,7 @@ function drawGame(hostname, port) {
                 <hr style="margin: 2px 0;">
                 <p style="margin: 2px 0; padding: 0;"><b>Position:</b> ${position.x}, ${position.y}</p>
                 <p style="margin: 2px 0; padding: 0;"><b>Energy:</b> ${current_energy}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p> 
+                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p>
                 <hr style="margin: 2px 0;">
             `;
 // , ${job.status}
@@ -727,10 +789,17 @@ function drawGame(hostname, port) {
         })
         .catch((error) => {
             console.error("Error:", error);
+            if(error instanceof GameUnvailableError){
+                LoadingBox.setStatus(LoadingBox.Status.NO_GAME);
+            } else {
+                LoadingBox.setStatus(LoadingBox.Status.SERVER_UNAVAILABLE);
+            }
         });
 }
-console.log(servers["localhost"].name);
-if (hostname !== null) {
-    setServerName(servers[hostname].name);
-    drawGame(hostname, port);
+function main(){
+    LoadingBox.setStatus(LoadingBox.Status.LOADING);
+    console.log(servers["localhost"].name);
+    if (hostname !== null) {
+        drawGame(hostname, port);
+    }
 }
