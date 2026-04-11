@@ -129,7 +129,7 @@ body.dark-mode .setting-text-name {
 
 .setting-text-description {
   font-size: 14px;
-  color: gray;
+  color: rgb(80,80,80);
 }
 
 body.dark-mode .setting-text-description {
