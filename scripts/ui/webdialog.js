@@ -1,3 +1,5 @@
+import SVGImporter from "/scripts/utilities/svgimporter.js";
+
 function getTextWidth_(text, font) {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -100,29 +102,89 @@ function showDialog_(html,title,buttons,onClose,submitButton,hasSVGFiles){
     };
     return active_dialog_;
 }
-
-
-export default {
-    showDialog: function showDialog(html,title,buttons){
+let DialogUtilities = {
+    isAnotherDialogShowing: function (){
+        return dialog_showing_;
+    },
+    showDialog: function (html,title,onClose,buttons,defaultButton){
         //ensure security
         let cleanHTML=DOMPurify.sanitize(html,{
-            ALLOWED_TAGS:['h1', 'h2', 'h3', 'h4', 'h5', 'h6','p','b','i','em','strong','br','img'],
+            ALLOWED_TAGS:['h1', 'h2', 'h3', 'h4', 'h5', 'h6','span','div','p','b','i','em','strong','br','img','svgfile'],
             ALLOWED_ATTR:['src','id','class','style']
         });
         let tempDiv=document.createElement("div");
         tempDiv.innerHTML=cleanHTML;
+        let hasSVGFiles=false;
         Array.from(tempDiv.querySelectorAll('*')).forEach((elem)=>{
-            if(elem.tagName.toLowerCase()!=="img"){
-                elem.removeAttribute('src');
+            switch(elem.tagName.toLowerCase()){
+                case "svgfile":
+                    hasSVGFiles=true;
+                case "img":
+                    break;
+                default:
+                    elem.removeAttribute('src');
             }
         });
         cleanHTML=tempDiv.innerHTML;
-        showDialog_(cleanHTML,title,buttons);
-    }
+        if(typeof onClose!="function")onClose=()=>{};
+        return showDialog_(cleanHTML,title,buttons,onClose,defaultButton,hasSVGFiles);
+    },
+    prompt: function (html, title, defaultValue, ok_handler, cancel_handler) {
+        //ensure security
+        let cleanHTML=DOMPurify.sanitize(html,{
+            ALLOWED_TAGS:['h1', 'h2', 'h3', 'h4', 'h5', 'h6','p','b','i','em','strong','br','img','svgfile'],
+            ALLOWED_ATTR:['src','id','class','style']
+        });
+        let tempDiv=document.createElement("div");
+        let innerDiv=document.createElement("div");
+        innerDiv.innerHTML=cleanHTML;
+        let hasSVGFiles=false;
+        Array.from(tempDiv.querySelectorAll('*')).forEach((elem)=>{
+            switch(elem.tagName.toLowerCase()){
+                case "svgfile":
+                    hasSVGFiles=true;
+                case "img":
+                    break;
+                default:
+                    elem.removeAttribute('src');
+            }
+        });
+        let input_elem=document.createElement("input");
+        input_elem.type="text";
+        input_elem.defaultValue=defaultValue||"";
+        input_elem.ariaLabel="insert value here";
+        input_elem.classList.add("dialog-input");
+        tempDiv.appendChild(innerDiv);
+        tempDiv.appendChild(input_elem);
+        cleanHTML=tempDiv.innerHTML;
+        function cancel_wrapper(){
+            if(cancel_handler) cancel_handler();
+        }
+        let dialog=showDialog_(cleanHTML,title,[{"text":"OK","action":()=>{
+            ok_handler(input_elem.value);
+        }},{text:"Cancel",action:cancel_wrapper}],cancel_wrapper,"OK",hasSVGFiles);
+        input_elem=document.querySelector(".dialog-input");
+        return dialog;
+    },
 }
 
-document.addEventListener("DOMContentLoaded",()=>{
-    document.head.innerHTML+=`
-    <link href="/styles/dialog.css" rel="stylesheet" />
-    `
+export default DialogUtilities;
+
+// add stylesheet
+document.head.innerHTML+=`<link rel="stylesheet" href="/styles/dialog.css">`;
+
+// add key handlers
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && dialog_showing_) {
+        active_dialog_.close(true);
+        event.stopPropagation();
+    }
+    if (event.key === 'Enter' && dialog_showing_){
+        document.querySelectorAll("button.dialog-button").forEach((button)=>{
+            if(button.textContent===active_dialog_.submitButton){
+                button.dispatchEvent(new Event("click"));
+                event.stopPropagation();
+            }
+        })
+    }
 });

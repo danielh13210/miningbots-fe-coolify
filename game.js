@@ -1,6 +1,10 @@
 import CookieUtilities from './scripts/utilities/cookie.js';
+import SettingsManager from './scripts/settings.js';
+import SocketUtilities from './scripts/socketnames.js';
+import {in_private_scope,with_value} from './scripts/utilities/functools.js';
 import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
+import LoadingBox from './scripts/ui/loadingbox.js';
 
 console.log("script started");
 
@@ -10,122 +14,204 @@ const server = CookieUtilities.getCookie("lastServer");
 //Probably some default values for original testing:
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
-var hostname;
-var port = 80;
-// if (server !== null) hostname = server; 
+var hostname, port;
+// if (server !== null) hostname = server;
 var gameId;
 
-var http_type = "http";
-var ws_type = "ws";
+const CONFIG_=SettingsManager.read_settings_cookie();
+const GameUnvailableError = class extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "GameUnvailableError";
+    }
+}
+
+let http_type,ws_type;
+function set_protocols(upgrade_connection){
+    if (CONFIG_["require_security"] || upgrade_connection) {
+        http_type = "https";
+        ws_type = "wss";
+    } else {
+        http_type = "http";
+        ws_type = "ws";
+    }
+}
 // var http_type = "https";
 // var ws_type = "wss";
 
 //Dictionary of servers and respective names, urls
-var servers = {
+var servers = in_private_scope(()=>{
+  let gport=CONFIG_.game_port;
+  let lport=CONFIG_.localhost_port;
+  let servers = {
     "p1.bootcamp.tk.sg": {
         name: "Game 1",
-        url: "p1.bootcamp.tk.sg",
+        url: `p1.bootcamp.tk.sg:${gport}`,
     },
     "p2.bootcamp.tk.sg": {
         name: "Game 2",
-        url: "p2.bootcamp.tk.sg",
+        url: `p2.bootcamp.tk.sg:${gport}`,
     },
     "p3.bootcamp.tk.sg": {
         name: "Game 3",
-        url: "p3.bootcamp.tk.sg",
+        url: `p3.bootcamp.tk.sg:${gport}`,
     },
     "p4.bootcamp.tk.sg": {
         name: "Game 4",
-        url: "p4.bootcamp.tk.sg",
+        url: `p4.bootcamp.tk.sg:${gport}`,
     },
     "p5.bootcamp.tk.sg": {
         name: "Game 5",
-        url: "p5.bootcamp.tk.sg",
+        url: `p5.bootcamp.tk.sg:${gport}`,
     },
     "p6.bootcamp.tk.sg": {
         name: "Game 6",
-        url: "p6.bootcamp.tk.sg",
+        url: `p6.bootcamp.tk.sg:${gport}`,
     },
     "p7.bootcamp.tk.sg": {
         name: "Main Game",
-        url: "p7.bootcamp.tk.sg",
+        url: `p7.bootcamp.tk.sg:${gport}`,
     },
     "p8.bootcamp.tk.sg": {
         name: "Game 8",
-        url: "p8.bootcamp.tk.sg",
+        url: `p8.bootcamp.tk.sg:${gport}`,
     },
     "p9.bootcamp.tk.sg": {
         name: "Game 9",
-        url: "p9.bootcamp.tk.sg",
+        url: `p9.bootcamp.tk.sg:${gport}`,
     },
     "p10.bootcamp.tk.sg": {
         name: "Game 10",
-        url: "p10.bootcamp.tk.sg",
+        url: `p10.bootcamp.tk.sg:${gport}`,
     },
     "s1.bootcamp.tk.sg": {
         name: "Staging 1",
-        url: "s1.bootcamp.tk.sg",
+        url: `s1.bootcamp.tk.sg:${gport}`,
     },
     "s2.bootcamp.tk.sg": {
         name: "Staging 2",
-        url: "s2.bootcamp.tk.sg",
+        url: `s2.bootcamp.tk.sg:${gport}`,
     },
     "s3.bootcamp.tk.sg": {
         name: "Staging 3",
-        url: "s3.bootcamp.tk.sg",
+        url: `s3.bootcamp.tk.sg:${gport}`,
     },
     "s4.bootcamp.tk.sg": {
         name: "Staging 4",
-        url: "s4.bootcamp.tk.sg",
+        url: `s4.bootcamp.tk.sg:${gport}`,
     },
     "s5.bootcamp.tk.sg": {
         name: "Staging 5",
-        url: "s5.bootcamp.tk.sg",
+        url: `s5.bootcamp.tk.sg:${gport}`,
     },
     "s6.bootcamp.tk.sg": {
         name: "Staging 6",
-        url: "s6.bootcamp.tk.sg",
+        url: `s6.bootcamp.tk.sg:${gport}`,
     },
     "s7.bootcamp.tk.sg": {
         name: "Staging 7",
-        url: "s7.bootcamp.tk.sg",
+        url: `s7.bootcamp.tk.sg:${gport}`,
     },
     "s8.bootcamp.tk.sg": {
         name: "Staging 8",
-        url: "s8.bootcamp.tk.sg",
+        url: `s8.bootcamp.tk.sg:${gport}`,
     },
     "s9.bootcamp.tk.sg": {
         name: "Staging 9",
-        url: "s9.bootcamp.tk.sg",
+        url: `s9.bootcamp.tk.sg:${gport}`,
     },
     "s10.bootcamp.tk.sg": {
         name: "Staging 10",
-        url: "s10.bootcamp.tk.sg",
+        url: `s10.bootcamp.tk.sg:${gport}`,
+    },
+    "current.invalid": {
+        name: "Front-end Host",
+        type: "fe_host"
     },
     "localhost": {
         name: "localhost",
-        url: "localhost:9003",
+        url: `localhost:${lport}`,
     },
     "miningbots-api.dev.tk.sg": {
         name: "miningbots-api.dev.tk.sg",
         url: "miningbots-api.dev.tk.sg",
+        require_security: true,
     },
-};
-
-if(server && servers[server]) {
-    let url=servers[server].url;
-    if(url.indexOf(":")!=-1){
-        hostname = url.split(":")[0];
-        port = url.split(":")[1];
-    } else {
-        hostname = url;
+    "custom.invalid": { // invalid special domain by IANA
+        name: "Custom / Other server...",
+        type: "custom"
     }
-}else {
-    hostname = null;
-}
+  }
+  servers["current.invalid"].require_security=servers["localhost"].require_security;
+  return servers;
+});
 
 // Variable to hold the selected server URL
 let selectedServerUrl = null;
+
+if(server && servers[server]){
+    const isSpecial=servers[server].hasOwnProperty("type");
+    if(isSpecial){
+        setServerName(servers[server].name);
+        switch(servers[server].type){
+            case "custom":
+                function empty_handler() {
+                    setServerName(servers[server].name.replace(/\.+$/, ""));
+                    LoadingBox.setStatus(LoadingBox.Status.SERVER_UNAVAILABLE);
+                    setTimeout(NavigationManager.showNavigation,200);
+                }
+                function prompt_socket(previous_socket) {
+                    DialogUtilities.prompt("Please enter the socket URL for the custom server:", "Socket URL", previous_socket, socket_obtained, empty_handler);
+                }
+                function socket_obtained(socket) {
+                    socket = socket.trim();
+                    try {
+                        if(socket.length==0) throw new Error("Socket URL cannot be empty");
+                        const url=SocketUtilities.breakUpSocket(socket);
+                        hostname = url.hostname;
+                        CookieUtilities.setCookie("custom_server",socket,"Fri, 31 Dec 9999 23:59:59 GMT",'/')
+                        console.log("URL: " + socket);
+                        let protocol=url.protocol.substring(0,url.protocol.length-1);
+                        with_value((protocol=="https"||protocol=="wss")||CONFIG_["require_security"],(is_secure_protocol)=>{
+                            port=SocketUtilities.applyDefaultPort(is_secure_protocol?"https":"http",url.port);
+                            set_protocols(is_secure_protocol);
+                        });
+                        setServerName(servers["custom.invalid"].name.replace(/\.+$/, "")); // remove trailing dots
+                        main();
+                    } catch (e){
+                        DialogUtilities.showDialog(`Error: ${e.message}`, "Error", empty_handler,[{text: "OK", action: ()=>{prompt_socket(socket)}}], "OK");
+                    }
+                }
+                let socket=CookieUtilities.getCookie("custom_server");
+                if(socket && SocketUtilities.isValidSocket(socket)) {
+                    socket_obtained(socket);
+                } else {
+                    //else prompt the user for the socket
+                    // "" is so that the field is empty by default
+                    prompt_socket("");
+                }
+                break;
+            case "fe_host":
+                hostname=location.hostname;
+                port=CONFIG_["localhost_port"];
+                set_protocols(servers["localhost"].require_security);
+                main();
+                break;
+        }
+    } else {
+        let url=servers[server].url;
+        if(url.indexOf(":")!=-1){
+            hostname = url.split(":")[0];
+            port = url.split(":")[1];
+        } else {
+            hostname = url;
+            port = (servers[hostname].require_security || CONFIG_['require_security']) ? '443' : '80';
+        }
+        set_protocols(servers[server].require_security);
+        setServerName(servers[hostname].name);
+        main();
+    }
+}
 
 // Function to populate the dropdown menu
 function populateDropdown() {
@@ -151,13 +237,14 @@ document.addEventListener("DOMContentLoaded", function () {
             setServerName(selectedServerName);
             // Save to cookie first
             CookieUtilities.setCookie("lastServer", selectedServerUrl, CookieUtilities.never);
+            CookieUtilities.deleteCookie("custom_server",'/');
             location.reload();
             // drawGame(selectedServerUrl, port);
         });
     });
 });
 
-// Player Name fetch code 
+// Player Name fetch code
 async function fetchPlayerNames(gameId, playerIds) {
     const url = `${http_type}://${hostname}:${port}/players`;
     const playerRequest = { game_id: gameId, player_ids: playerIds };
@@ -182,36 +269,15 @@ function drawGame(hostname, port) {
     const ctx = canvas.getContext("2d");
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
-    var GRID_SIZE;
-    const images = {
-        kFactoryBot: new Image(),
-        kMiningBot: new Image(),
-        mixed_ore: new Image(),
-        granite: new Image(),
-        vibranium: new Image(),
-        adamantite: new Image(),
-        unobtanium: new Image(),
-    };
-    const terrainImages = {
-        unknown: new Image(),
-        grassland: new Image(),
-        hills: new Image(),
-        mountain: new Image()
-    };
-
-    //Assigns images
-    images.kFactoryBot.src = 'assets/Factory_Bot.png';
-    images.kMiningBot.src = 'assets/Mining_Bot.png';
-    images.mixed_ore.src = 'assets/Mixed_Ore.png';
-    images.granite.src = 'assets/Granite.png';
-    images.vibranium.src = 'assets/Vibranium.png';
-    images.adamantite.src = 'assets/Adamantite.png';
-    images.unobtanium.src = 'assets/Unobtanium.png';
-
-    terrainImages.unknown.src = 'assets/unknown.jpg';
-    terrainImages.grassland.src = 'assets/grassland.jpg';
-    terrainImages.hills.src = 'assets/hills.jpg';
-    terrainImages.mountain.src = 'assets/mountain.jpg';
+    const images = {};
+    images.kMiningBot = new Image();
+    images.kMiningBot.src = "assets/Mining_Bot.png";
+    images.kFactoryBot = new Image();
+    images.kFactoryBot.src = "assets/Factory_Bot.png";
+    images.mixed_ore = new Image();
+    images.mixed_ore.src = "assets/Mixed_Ore.png";
+    images.unknown = new Image();
+    let terrainImages={};
 
     //Likely connecting to the server and retrieving initial game state
     fetch(`${http_type}://${hostname}:${port}/games`, {
@@ -232,6 +298,7 @@ function drawGame(hostname, port) {
             let gameStatus = games[0].game_status;
             if (gameStatus == 'kEnded') {
                 console.log('failed to subscribe because game has ended');
+                throw new GameUnvailableError('Game has ended');
                 return;
             }
             let fetch_map_config = fetch(`${http_type}://${hostname}:${port}/map_config?game_id=${gameId}`, {
@@ -245,6 +312,7 @@ function drawGame(hostname, port) {
 
             if (response.ok) {
                 console.log('Second fetch response:', response);
+                LoadingBox.setStatus(LoadingBox.Status.LOADING_COMPLETED);
                 return { map_config: response.json(), game_id: result.game_id };
             } else {
                 throw new Error(response.statusText);
@@ -257,6 +325,7 @@ function drawGame(hostname, port) {
             // rendring information
 
             // browser window dimensions
+            var GRID_SIZE;
             var screenWidth = window.innerWidth;
             var screenHeight = window.innerHeight;
             // map dimensions
@@ -275,10 +344,6 @@ function drawGame(hostname, port) {
                     resizeTimeout=null;
                 },100);
             });
-            const GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
-            const BOT_START_IDX = 500; //starting index for bot elements in gameState array, to avoid clashing with other element indices. Arbitrary.
-
-
             console.log(COLS);
 
             // Update canvas dimensions
@@ -297,7 +362,7 @@ function drawGame(hostname, port) {
                 // Update canvas dimensions
                 canvas.width = COLS * GRID_SIZE;
                 canvas.height = ROWS * GRID_SIZE;
-                
+
                 updateSidebarDimensions();
                 if(!lazy_render) render();
             }
@@ -312,11 +377,13 @@ function drawGame(hostname, port) {
                 unknown: 4,
                 traversable: 5,
                 resource: 6,
-                granite: 7,
+                /*granite: 7,
                 vibranium: 8,
                 adamantite: 9,
-                unobtanium: 10
+                unobtanium: 10*/
             };
+
+            const resource_element_start_idx = Math.max(...Object.values(elements))+1; //the index where resource elements start in the elements object
 
             const resources = {
 
@@ -325,7 +392,21 @@ function drawGame(hostname, port) {
             // let resource_configs = result.map_config.resource_configs;
             //Adds new game elements from resource_configs if they do not already exist
             resource_configs.forEach(resource => {
-                resources[Object.keys(resources).length] = resource.name;
+                resources[Object.keys(resources).length] = resource.name.toLowerCase();
+                elements[resource.name.toLowerCase()] = resource_element_start_idx + Object.keys(resources).length-1;
+                images[resource.name.toLowerCase()] = new Image();
+                images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
+            });
+            const BOT_START_IDX=Math.max(...Object.values(elements))+1; //the index where bot elements start in the elements object
+
+            function addTerrain(terrain_name){
+                terrainImages[terrain_name] = new Image();
+                terrainImages[terrain_name].src = 'assets/' + terrain_name + '.jpg';
+            }
+            //Adds new terrain images from terrain_configs
+            addTerrain('unknown'); //always have unknown terrain
+            map_config.terrain_configs.forEach(terrain => {
+                addTerrain(terrain.name.toLowerCase());
             });
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
@@ -348,7 +429,7 @@ function drawGame(hostname, port) {
             }
 
             //this exists because the bots have a background colour that indicates the player they are attached to, instead of the terrain
-            //can remove this if the background is also changed to an image 
+            //can remove this if the background is also changed to an image
             function drawABot(c, r, colour, image) {
                 ctx.fillStyle = colour;
                 ctx.fillRect(c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
@@ -387,7 +468,7 @@ function drawGame(hostname, port) {
                             case elements.resource:
                                 ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                                 break;
-                            case elements.granite:
+                            /*case elements.granite:
                                 drawASquare(col, row, terrain, images.granite);
                                 break;
                             case elements.vibranium:
@@ -398,9 +479,17 @@ function drawGame(hostname, port) {
                                 break;
                             case elements.unobtanium:
                                 drawASquare(col, row, terrain, images.unobtanium);
-                                break;
+                                break;*/
                             default:
-                                if(element >= BOT_START_IDX){ //bot elements
+                                if(element < BOT_START_IDX){
+                                    const resourceId = resources[element-resource_element_start_idx];
+                                    let image=images[resourceId.toLowerCase()];
+                                    if(image.complete && image.naturalHeight > 0){
+                                        drawASquare(col, row, terrain, image);
+                                    } else {
+                                        ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                                    }
+                                } else {
                                     let playerIndex = Math.floor((element - BOT_START_IDX) / 2);
                                     let variant = (element - BOT_START_IDX) % 2 === 0 ? 'kMiningBot' : 'kFactoryBot';
                                     let color=colors[playerIndex];
@@ -427,7 +516,7 @@ function drawGame(hostname, port) {
 
             ws.onopen = function () {
                 console.log('Connected to WebSocket server');
-                const subscribeRequest = JSON.stringify({ game_id: result.game_id, observer_key: 514525537, observer_name: 'Observer' });
+                const subscribeRequest = JSON.stringify({ game_id: result.game_id, observer_key: CONFIG_.observer_key, observer_name: 'Observer' });
                 ws.send(subscribeRequest);
             };
 
@@ -435,42 +524,49 @@ function drawGame(hostname, port) {
             ws.onmessage = function (msg) {
                 console.log('before parse:', msg);
                 try {
-                    const data = JSON.parse(msg.data);
-                    console.log('after parse:', data);
-                    switch (data.update_type) {
-                        case 'kTickUpdate':
-                            console.log('tick update: ', data)
-                            if (Array.isArray(data.bot_updates)) {
-                                data.bot_updates.forEach(botUpdate => {
-                                    console.log('botUpdate: ', botUpdate);
-                                    updateBot(botUpdate, data.player_id);
-                                })
-                            }
-                            if (Array.isArray(data.job_updates)) {
-                                data.job_updates.forEach(jobUpdate => {
-                                    console.log('jobUpdate: ', jobUpdate);
-                                    updateJob(jobUpdate);
-                                })
-                            }
-                            if (Array.isArray(data.land_updates)) {
-                                data.land_updates.forEach(landUpdate => {
-                                    console.log('landUpdate: ', landUpdate);
-                                    updateLand(landUpdate);
-                                })
-                            }
-                            updateUI(data.player_id);
-                            render();
-                            break;
-                        case 'kEndInWin':
-                            console.log(`game ended player id ${data.player_id} won`);
-                            showWinner(data.player_id);
-                            break;
-                        case 'kEndInDraw':
-                            console.log('game ended in draw');
-                            break;
-                        default:
-                            console.log(data.UpdateType);
-                            break;
+                    function parse_callback(json_string){
+                        const data = JSON.parse(json_string);
+                        console.log('after parse:', data);
+                        switch (data.update_type) {
+                            case 'kTickUpdate':
+                                console.log('tick update: ', data)
+                                if (Array.isArray(data.bot_updates)) {
+                                    data.bot_updates.forEach(botUpdate => {
+                                        console.log('botUpdate: ', botUpdate);
+                                        updateBot(botUpdate, data.player_id);
+                                    })
+                                }
+                                if (Array.isArray(data.job_updates)) {
+                                    data.job_updates.forEach(jobUpdate => {
+                                        console.log('jobUpdate: ', jobUpdate);
+                                        updateJob(jobUpdate);
+                                    })
+                                }
+                                if (Array.isArray(data.land_updates)) {
+                                    data.land_updates.forEach(landUpdate => {
+                                        console.log('landUpdate: ', landUpdate);
+                                        updateLand(landUpdate);
+                                    })
+                                }
+                                updateUI(data.player_id);
+                                render();
+                                break;
+                            case 'kEndInWin':
+                                console.log(`game ended player id ${data.player_id} won`);
+                                showWinner(data.player_id);
+                                break;
+                            case 'kEndInDraw':
+                                console.log('game ended in draw');
+                                break;
+                            default:
+                                console.log(data.UpdateType);
+                                break;
+                        }
+                    }
+                    if (msg.data instanceof Blob) {
+                        msg.data.text().then(text => parse_callback(text));
+                    } else if (typeof msg.data === 'string') {
+                        parse_callback(msg.data);
                     }
                 } catch (error) {
                     console.error('Error parsing message:', error);
@@ -533,7 +629,7 @@ function drawGame(hostname, port) {
             //Updates the state of a tile on the map
             function updateLand(data) {
                 const { position: { x, y }, is_traversable, resources, terrain_id } = data;
-                switch (terrain_id) {
+                /*switch (terrain_id) {
                     case 0:
                         terrains[ROWS - y - 1][x] = terrainImages.grassland;
                         break;
@@ -545,7 +641,12 @@ function drawGame(hostname, port) {
                         break;
                     default:
                         terrains[ROWS - y - 1][x] = terrainImages.unknown;
+                }*/
+                let terrain_name = 'unknown';
+                if(terrain_id < map_config.terrain_configs.length){
+                    terrain_name = map_config.terrain_configs[terrain_id].name.toLowerCase();
                 }
+                terrains[ROWS - y - 1][x] = terrainImages[terrain_name];
 
                 if (is_traversable) {
                     gameState[ROWS - y - 1][x] = elements.traversable;
@@ -558,7 +659,7 @@ function drawGame(hostname, port) {
                             }
                         })
 
-                        switch (highestId) {
+/*                        switch (highestId) {
                             case 0:
                                 gameState[ROWS - y - 1][x] = elements.granite;
                                 break;
@@ -574,16 +675,16 @@ function drawGame(hostname, port) {
                             default:
                                 gameState[ROWS - y - 1][x] = elements.resource;
                                 break;
+                        }*/
+                        // we have to use map_config because the resources is shadowed here
+                        if(map_config.resource_configs[highestId] !== undefined){
+                            gameState[ROWS - y - 1][x] = elements[map_config.resource_configs[highestId].name.toLowerCase()];
+                        } else {
+                            gameState[ROWS - y - 1][x] = elements.resource;
                         }
                     }
                 }
                 renderBots();
-            }
-
-            function nextGame() {
-                fetch(`${http_type}://${hostname}:${port}/games`, {
-                    method: 'GET'
-                })
             }
 
             //Display a dialog box in the middle of the screen indicating the winner
@@ -612,7 +713,7 @@ function drawGame(hostname, port) {
                 console.log('Current player ID:', player_id);
 
 
-                // Player names code: 
+                // Player names code:
                 let playerInfo = await fetchPlayerNames(gameId, [player_id]);
                 console.log(playerInfo);
                 // var name = playerInfo[0].name;
@@ -630,7 +731,7 @@ function drawGame(hostname, port) {
                 const header = document.createElement('h4');
                 header.textContent = `Player: ${player_id}`;
                 header.style.color = color;
-                header.style.fontSize = "0.8vw"; 
+                header.style.fontSize = "0.8vw";
                 header.style.margin = "0vw";
                 header.style.padding = "0.05vw";
                 sidebar.appendChild(header);
@@ -649,7 +750,7 @@ function drawGame(hostname, port) {
                 <hr style="margin: 2px 0;">
                 <p style="margin: 2px 0; padding: 0;"><b>Position:</b> ${position.x}, ${position.y}</p>
                 <p style="margin: 2px 0; padding: 0;"><b>Energy:</b> ${current_energy}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p> 
+                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p>
                 <hr style="margin: 2px 0;">
             `;
 // , ${job.status}
@@ -662,6 +763,7 @@ function drawGame(hostname, port) {
                         cargo.forEach(item => {
                             //Image of the mineral
                             let mineralImage = document.createElement('img')
+                            mineralImage.alt=mineralImage.title=map_config.resource_configs[item.id].name;
                             mineralImage.src = "./assets/" + String(resources[item.id]) + ".png"
                             mineralImage.style = "width: 1vw; height: 1vw"
                             cargoContainer.appendChild(mineralImage);
@@ -685,10 +787,17 @@ function drawGame(hostname, port) {
         })
         .catch((error) => {
             console.error("Error:", error);
+            if(error instanceof GameUnvailableError){
+                LoadingBox.setStatus(LoadingBox.Status.NO_GAME);
+            } else {
+                LoadingBox.setStatus(LoadingBox.Status.SERVER_UNAVAILABLE);
+            }
         });
 }
-console.log(servers["localhost"].name);
-if (hostname !== null) {
-    setServerName(servers[hostname].name);
-    drawGame(hostname, port);
+function main(){
+    LoadingBox.setStatus(LoadingBox.Status.LOADING);
+    console.log(servers["localhost"].name);
+    if (hostname !== null) {
+        drawGame(hostname, port);
+    }
 }
