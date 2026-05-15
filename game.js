@@ -158,9 +158,6 @@ function drawGame(hostname, port) {
                     resizeTimeout=null;
                 },100);
             });
-            const BOT_START_IDX = 500; //starting index for bot elements in gameState array, to avoid clashing with other element indices. Arbitrary.
-
-
             console.log(COLS);
 
             // Update canvas dimensions
@@ -214,6 +211,7 @@ function drawGame(hostname, port) {
                 images[resource.name.toLowerCase()] = new Image();
                 images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
             });
+            const BOT_START_IDX=Math.max(...Object.values(elements))+1; //the index where bot elements start in the elements object
 
             function addTerrain(terrain_name){
                 terrainImages[terrain_name] = new Image();
