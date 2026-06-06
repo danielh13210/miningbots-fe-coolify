@@ -1,3 +1,5 @@
+import KeyboardUtilities from '/scripts/utilities/keyboard_utilities.js';
+
 let ModeManager = {
   IS_PRODUCTION_MODE: false,
   toggleFullscreen: ()=>{
@@ -10,6 +12,13 @@ let ModeManager = {
 document.addEventListener('fullscreenchange', (event) => {
   ModeManager.IS_PRODUCTION_MODE=!!document.fullscreenElement;
 });
+
+document.addEventListener('keydown', (event)=>{
+  if(KeyboardUtilities.isMnemonicPressed(event,false,'f')){
+    event.preventDefault();
+    ModeManager.toggleFullscreen();
+  }
+})
 
 window.CompetitionManager=ModeManager;
 export default ModeManager;
