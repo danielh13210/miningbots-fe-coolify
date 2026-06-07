@@ -1,6 +1,8 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
+  background-color: #f8fafc;
+  color: #172033;
 }
 
 body::backdrop{
@@ -17,6 +19,7 @@ body::backdrop{
   width: auto;
   position: relative;
   right: 0;
+  background-color: #e5e7eb;
 }
 
 .h4 {
@@ -24,39 +27,119 @@ body::backdrop{
 }
 
 .sidebar {
-  /* This allows the bot-info DIVs to be aligned horizontally */
   display: block;
-  /* flex-wrap: nowrap; */
-  /* flex-direction: row; */
-
-  /* In theory, the automatic width would adapt based on the size of the game canvas */
-  /* And auto height should help with > 1 player -> hopefully evenly distributed height */
   width: auto;
-  height: 20%;
+  min-height: 20%;
 
-  background-color: #f1f1f1;
-  padding: 0.1vw;
+  background-color: #f8fafc;
+  padding: 6px;
   overflow-x: auto;
-  overflow-y:hidden;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+  overflow-y: hidden;
+  border-bottom: 1px solid #d1d5db;
+  box-shadow: -2px 0 5px rgba(15, 23, 42, 0.08);
+}
+
+.player-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-left: 6px;
+  border-left: 4px solid currentColor;
+}
+
+.player-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.player-header span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.win-progress {
+  margin-bottom: 6px;
+  padding: 6px;
+  background-color: #fff;
+  border: 1px solid #dbe2ea;
+  border-radius: 6px;
+}
+
+.win-progress-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.win-progress-bar {
+  height: 7px;
+  margin-top: 5px;
+  overflow: hidden;
+  background-color: #e2e8f0;
+  border-radius: 999px;
+}
+
+.win-progress-fill {
+  height: 100%;
+  background-color: #16a34a;
+  border-radius: inherit;
+}
+
+.win-quota-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: 4px 8px;
+  margin-top: 6px;
+}
+
+.win-quota-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: #475569;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.win-quota-row.complete {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.bot-box {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .bot-info {
   margin: 2px;
-  padding: 2px;
-  border: 1px solid #ccc;
+  padding: 5px;
+  min-width: 112px;
+  border: 1px solid #dbe2ea;
+  border-radius: 6px;
   background-color: #fff;
 }
 
 .bot-info h4 {
   margin: 0;
   padding: 0;
-  font-size: 0.55vw;
+  color: #172033;
+  font-size: 11px;
 }
 
 .bot-info p {
-  margin: 5px 0;
-  font-size: 0.55vw;
+  margin: 4px 0;
+  color: #334155;
+  font-size: 11px;
 }
 
 #navbar-peek-triggerbox:hover + .navbar {

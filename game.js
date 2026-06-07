@@ -11,7 +11,6 @@ console.log("script started");
 // var port = 443;
 var hostname, port;
 // if (server !== null) hostname = server;
-var gameId;
 
 const GameUnvailableError = class extends Error {
     constructor(message) {
@@ -135,6 +134,7 @@ function drawGame(hostname, port) {
         //Map config taken from server data
         .then(async result => {
             let map_config = await result.map_config;
+            const matchGameId = result.game_id;
             console.log('map_config:', map_config);
             // rendring information
 
@@ -392,8 +392,7 @@ function drawGame(hostname, port) {
             //Possibly add more colours for >2 players too
             const colors = ['blue', 'red', 'green', 'yellow', 'purple', 'orange', 'pink'];
 
-            //Updates the bot's position and its job?
-            function updateBot(botUpdate, playerId) {
+            function ensurePlayer(playerId) {
                 if (!players.hasOwnProperty(playerId)) {
                     players[playerId] = Object.keys(players).length;
                     let sidebar=document.createElement("div");
@@ -402,7 +401,139 @@ function drawGame(hostname, port) {
                     document.getElementById("bot-info-megacontainer").appendChild(sidebar);
                     sidebars.push(sidebar);
                 }
-                const playerIndex = players[playerId];
+                return players[playerId];
+            }
+
+            function getPlayerLabel(playerId) {
+                return playerNames[playerId] || `Player ${playerId}`;
+            }
+
+            function escapeHTML(value) {
+                return String(value).replace(/[&<>"']/g, char => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[char]);
+            }
+
+            async function ensurePlayerName(playerId) {
+                if (playerNames[playerId]) {
+                    return playerNames[playerId];
+                }
+
+                const playerInfo = await fetchPlayerNames(matchGameId, [playerId]);
+                if (Array.isArray(playerInfo) && playerInfo.length > 0 && playerInfo[0].name) {
+                    playerNames[playerId] = playerInfo[0].name;
+                }
+                return getPlayerLabel(playerId);
+            }
+
+            function cargoAmount(cargo, resourceId) {
+                const chunk = cargo.find(item => item.id === resourceId);
+                return chunk ? chunk.amount : 0;
+            }
+
+            function progressForFactory(factoryCargo) {
+                const totalRequired = map_config.win_condition.reduce((sum, chunk) => sum + chunk.amount, 0);
+                if (totalRequired <= 0) {
+                    return { percent: 0, current: 0, total: 0, chunks: [] };
+                }
+
+                const chunks = map_config.win_condition.map(chunk => {
+                    const amount = cargoAmount(factoryCargo, chunk.id);
+                    return {
+                        id: chunk.id,
+                        amount,
+                        required: chunk.amount,
+                        complete: amount >= chunk.amount
+                    };
+                });
+                const current = chunks.reduce((sum, chunk) => sum + Math.min(chunk.amount, chunk.required), 0);
+
+                return {
+                    percent: Math.floor((current / totalRequired) * 100),
+                    current,
+                    total: totalRequired,
+                    chunks
+                };
+            }
+
+            function bestWinProgress(playerIndex) {
+                let best = null;
+                for (const [id, [_position, variant, _current_energy, _job, cargo, botPlayerIndex]] of botMap.entries()) {
+                    if (playerIndex !== botPlayerIndex || variant !== 'kFactoryBot') {
+                        continue;
+                    }
+                    const progress = progressForFactory(cargo);
+                    if (best === null || progress.percent > best.percent) {
+                        best = { botId: id, ...progress };
+                    }
+                }
+                return best || { botId: null, percent: 0, current: 0, total: 0, chunks: [] };
+            }
+
+            function appendWinProgress(parent, playerIndex) {
+                const progress = bestWinProgress(playerIndex);
+                const progressBox = document.createElement('div');
+                progressBox.classList.add('win-progress');
+
+                const heading = document.createElement('div');
+                heading.classList.add('win-progress-heading');
+
+                const title = document.createElement('span');
+                title.textContent = progress.botId === null ? 'Win progress' : `Factory ${progress.botId}`;
+                heading.appendChild(title);
+
+                const percent = document.createElement('span');
+                percent.textContent = `${progress.percent}%`;
+                heading.appendChild(percent);
+                progressBox.appendChild(heading);
+
+                const bar = document.createElement('div');
+                bar.classList.add('win-progress-bar');
+                const fill = document.createElement('div');
+                fill.classList.add('win-progress-fill');
+                fill.style.width = `${Math.min(progress.percent, 100)}%`;
+                bar.appendChild(fill);
+                progressBox.appendChild(bar);
+
+                const quotaGrid = document.createElement('div');
+                quotaGrid.classList.add('win-quota-grid');
+                progress.chunks.forEach(chunk => {
+                    const resource = map_config.resource_configs[chunk.id];
+                    const row = document.createElement('div');
+                    row.classList.add('win-quota-row');
+                    if (chunk.complete) {
+                        row.classList.add('complete');
+                    }
+
+                    const label = document.createElement('span');
+                    label.textContent = resource ? resource.name : `Resource ${chunk.id}`;
+                    row.appendChild(label);
+
+                    const amount = document.createElement('span');
+                    amount.textContent = `${chunk.amount}/${chunk.required}`;
+                    row.appendChild(amount);
+                    quotaGrid.appendChild(row);
+                });
+
+                if (progress.chunks.length === 0) {
+                    const row = document.createElement('div');
+                    row.classList.add('win-quota-row');
+                    row.textContent = 'No win condition configured';
+                    quotaGrid.appendChild(row);
+                }
+
+                progressBox.appendChild(quotaGrid);
+                parent.appendChild(progressBox);
+            }
+
+            //Updates the bot's position and its job?
+            function updateBot(botUpdate, playerId) {
+                const effectivePlayerId = botUpdate.player_id ?? playerId;
+                const playerIndex = ensurePlayer(effectivePlayerId);
 
                 const { id, position, variant, current_energy, current_job_id, cargo } = botUpdate;
                 if (botMap.has(id)) {
@@ -502,8 +633,9 @@ function drawGame(hostname, port) {
             }
 
             //Display a dialog box in the middle of the screen indicating the winner
-            function showWinner(playerId) {
-                let text = `<h1>Player ${playerId} Won!</h1>`;
+            async function showWinner(playerId) {
+                await ensurePlayerName(playerId);
+                let text = `<h1>${escapeHTML(getPlayerLabel(playerId))} Won!</h1>`;
                 DialogUtilities.showDialog(text,"We have a winner!");
             }
 
@@ -519,20 +651,14 @@ function drawGame(hostname, port) {
             }
             //shows a row for each player showing each bot and their data
             async function updateUI(player_id) {
-                if (!players.hasOwnProperty(player_id) && Object.keys(players).length < 2) {
-                    players[player_id] = Object.keys(players).length;
-                }
+                const playerIndex = ensurePlayer(player_id);
 
                 console.log('Players object:', players);
                 console.log('Current player ID:', player_id);
 
 
-                // Player names code:
-                let playerInfo = await fetchPlayerNames(gameId, [player_id]);
-                console.log(playerInfo);
-                // var name = playerInfo[0].name;
+                await ensurePlayerName(player_id);
 
-                const playerIndex = players[player_id];
                 console.log('playerIndex:', playerIndex);
 
                 const sidebar = sidebars[playerIndex];
@@ -542,23 +668,29 @@ function drawGame(hostname, port) {
 
                 sidebar.innerHTML = ''; // Clear the existing sidebar content
 
-                const header = document.createElement('h4');
-                header.textContent = `Player: ${player_id}`;
+                const header = document.createElement('div');
+                header.classList.add('player-header');
                 header.style.color = color;
-                header.style.fontSize = "0.8vw";
-                header.style.margin = "0vw";
-                header.style.padding = "0.05vw";
+
+                const playerName = document.createElement('h4');
+                playerName.textContent = getPlayerLabel(player_id);
+                header.appendChild(playerName);
+
+                const playerIdText = document.createElement('span');
+                playerIdText.textContent = `ID ${player_id}`;
+                header.appendChild(playerIdText);
                 sidebar.appendChild(header);
 
+                appendWinProgress(sidebar, playerIndex);
+
                 const botBox = document.createElement('div');
-                botBox.style = "display: flex; gap: 0vw; padding: 0vw, margin: 0.1vw; height: 100%; width: 100%; overflow-y: auto";
+                botBox.classList.add('bot-box');
                 sidebar.appendChild(botBox);
                 for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of botMap.entries()) {
                     if (playerIndex == botPlayerIndex) { //THIS MIGHT NOT WORK
                         const botDiv = document.createElement('div');
                         console.log('cargo: ', cargo);
                         botDiv.classList.add('bot-info');
-                        botDiv.style = "width: 14%, height: 24%";
                         botDiv.innerHTML = `
                 <h4 style="margin: 2px 0; padding: 0;"><b>${NameMaps.mapName("variantMap", variant)}</b> ${id}</h4>
                 <hr style="margin: 2px 0;">

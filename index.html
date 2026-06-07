@@ -29,6 +29,7 @@
     <a role="button" title="Enter Competition Mode" onclick="CompetitionManager.toggleFullscreen()" id="fullscreen-button" helpon-available><svgfile id="fullscreen-icon" aria-hidden="true" src="/assets/ui/fullscreen.svg"></svgfile></a>
     <script type="module">
       import SVGImporter from "./scripts/utilities/svgimporter.js";
+      import KeyboardUtilities from "./scripts/utilities/keyboard_utilities.js";
       document.addEventListener('fullscreenchange', (event) => {
         let title,icon;
         if(document.fullscreenElement){
@@ -38,7 +39,7 @@
           title="Enter Competition Mode";
           icon="fullscreen";
         }
-        document.getElementById("fullscreen-button").title=title;
+        document.getElementById("fullscreen-button").title=`${title} (${KeyboardUtilities.joinMnemonic(false,'F')})`; //reappend mnemonic so it doesn't disappear when fullscreen changes
         let svgicon=document.createElement("svgfile");
         svgicon.ariaHidden=true;
         svgicon.id="fullscreen-icon";
