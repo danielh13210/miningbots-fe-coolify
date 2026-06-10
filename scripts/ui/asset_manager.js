@@ -17,23 +17,23 @@ export class AssetManager {
 
     initializeBaseImages() {
         this.images.kMiningBot = new Image();
-        this.images.kMiningBot.src = "assets/Mining_Bot.png";
+        this.images.kMiningBot.src = "assets/Bot_Mining.png";
         this.images.kFactoryBot = new Image();
-        this.images.kFactoryBot.src = "assets/Factory_Bot.png";
+        this.images.kFactoryBot.src = "assets/Bot_Factory.png";
         this.images.kFactoryBotIdle = new Image();
-        this.images.kFactoryBotIdle.src = "assets/Factory_Bot_Idle.png";
+        this.images.kFactoryBotIdle.src = "assets/Bot_Factory_Idle.png";
         this.images.kFactoryBotActive = new Image();
-        this.images.kFactoryBotActive.src = "assets/Factory_Bot_Active.png";
+        this.images.kFactoryBotActive.src = "assets/Bot_Factory_Active.png";
         this.images.kScoutBot = new Image();
-        this.images.kScoutBot.src = "assets/Scout_Bot.png";
+        this.images.kScoutBot.src = "assets/Bot_Scout.png";
         this.images.kHaulerBot = new Image();
-        this.images.kHaulerBot.src = "assets/Hauler_Bot.png";
+        this.images.kHaulerBot.src = "assets/Bot_Hauler.png";
         this.images.kHaulerBotEmpty = new Image();
-        this.images.kHaulerBotEmpty.src = "assets/Hauler_Bot_Empty.png";
+        this.images.kHaulerBotEmpty.src = "assets/Bot_Hauler_Empty.png";
         this.images.kHaulerBotFull = new Image();
-        this.images.kHaulerBotFull.src = "assets/Hauler_Bot_Full.png";
+        this.images.kHaulerBotFull.src = "assets/Bot_Hauler_Full.png";
         this.images.mixed_ore = new Image();
-        this.images.mixed_ore.src = "assets/Mixed_Ore.png";
+        this.images.mixed_ore.src = "assets/Resource_Mixed_Ore.png";
         this.images.unknown = new Image();
     }
 
@@ -76,7 +76,7 @@ export class AssetManager {
     // Resolves clean name and image source path for cargo items
     getItemInfo(item, mapConfig) {
         let itemName = "unknown";
-        let itemImageSrc = "./assets/mixed_ore.png";
+        let itemImageSrc = "./assets/Resource_Mixed_Ore.png";
         let isIntermediate = item.type === 'kIntermediate' || item.type === 1;
         
         if (isIntermediate || item.id >= (mapConfig.resource_configs || []).length) {

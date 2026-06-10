@@ -372,14 +372,14 @@ function drawGame(hostname, port) {
             const botVariants = assetManager.botVariants;
             const BOT_START_IDX = assetManager.BOT_START_IDX;
 
-            function addTerrain(terrain_name){
+            function addTerrain(terrain_name, filename){
                 terrainImages[terrain_name] = new Image();
-                terrainImages[terrain_name].src = 'assets/' + terrain_name + '.jpg';
+                terrainImages[terrain_name].src = 'assets/' + (filename || terrain_name) + '.jpg';
             }
             //Adds new terrain images from terrain_configs
             addTerrain('unknown'); //always have unknown terrain
             map_config.terrain_configs.forEach(terrain => {
-                addTerrain(terrain.name.toLowerCase());
+                addTerrain(terrain.name.toLowerCase(), 'Terrain_' + terrain.name);
             });
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
@@ -403,7 +403,8 @@ function drawGame(hostname, port) {
 
             //this exists because the bots have a background colour that indicates the player they are attached to, instead of the terrain
             //can remove this if the background is also changed to an image
-            function drawABot(c, r, colour, image) {
+            function drawABot(c, r, colour, image, terrain) {
+                ctx.drawImage(terrain, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
                 ctx.fillStyle = colour;
                 ctx.fillRect(c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
                 ctx.drawImage(image, c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
@@ -433,7 +434,8 @@ function drawGame(hostname, port) {
                                 //drawASquare(col, row, terrain, images.kMiningBot);
                                 break;*/
                             case elements.unknown:
-                                drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
+                                ctx.fillStyle = '#1a3320';
+                                ctx.fillRect(col * GRID_SIZE - borderWidth, row * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
                                 break;
                             case elements.traversable:
                                 drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
@@ -473,11 +475,11 @@ function drawGame(hostname, port) {
                                     let botCargo = botEntry ? botEntry[4] : null;
                                     let img = assetManager.getBotImage(variant, botJob, botCargo);
                                     
-                                    drawABot(col, row, color, img);
+                                    drawABot(col, row, color, img, terrain);
                                 }
                         }
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
-                            ctx.strokeStyle = 'white'; // set border color to white
+                            ctx.strokeStyle = 'rgba(144,238,144,0.4)'; // light green gridlines
                             ctx.lineWidth = 1; // set border width
                             ctx.strokeRect(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                         }
@@ -577,7 +579,7 @@ function drawGame(hostname, port) {
             //Sidebars has to be dynamically added if in the future you want >2 players
             const sidebars = Array.from(document.querySelectorAll('div[id^="bot-sidebar-"]'));
             //Possibly add more colours for >2 players too
-            const colors = ['blue', 'red', 'green', 'yellow', 'purple', 'orange', 'pink'];
+            const colors = ['rgba(0,100,255,0.35)', 'rgba(220,50,50,0.35)', 'rgba(0,190,0,0.35)', 'rgba(220,200,0,0.35)', 'rgba(170,0,230,0.35)', 'rgba(230,130,0,0.35)', 'rgba(230,80,160,0.35)'];
 
             function ensurePlayer(playerId) {
                 if (!players.hasOwnProperty(playerId)) {
