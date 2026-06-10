@@ -46,7 +46,11 @@ export class AssetManager {
             this.resources[Object.keys(this.resources).length] = cleanName;
             this.elements[cleanName] = resource_element_start_idx + Object.keys(this.resources).length - 1;
             this.images[cleanName] = new Image();
-            this.images[cleanName].src = 'assets/' + cleanName + '.png';
+            // Prefer Resource_Name.png (new assets), fall back to name.png
+            const newAssetSrc = 'assets/Resource_' + resource.name + '.png';
+            const fallbackSrc = 'assets/' + cleanName + '.png';
+            this.images[cleanName].onerror = () => { this.images[cleanName].onerror = null; this.images[cleanName].src = fallbackSrc; };
+            this.images[cleanName].src = newAssetSrc;
         });
 
         const intermediate_configs = mapConfig.intermediate_configs || [
