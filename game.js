@@ -5,6 +5,7 @@ import {in_private_scope,with_value} from './scripts/utilities/functools.js';
 import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
 import LoadingBox from './scripts/ui/loadingbox.js';
+import assetManager from './scripts/ui/asset_manager.js';
 
 console.log("script started");
 
@@ -269,26 +270,7 @@ function drawGame(hostname, port) {
     const ctx = canvas.getContext("2d");
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
-    const images = {};
-    images.kMiningBot = new Image();
-    images.kMiningBot.src = "assets/Mining_Bot.png";
-    images.kFactoryBot = new Image();
-    images.kFactoryBot.src = "assets/Factory_Bot.png";
-    images.kFactoryBotIdle = new Image();
-    images.kFactoryBotIdle.src = "assets/Factory_Bot_Idle.png";
-    images.kFactoryBotActive = new Image();
-    images.kFactoryBotActive.src = "assets/Factory_Bot_Active.png";
-    images.kScoutBot = new Image();
-    images.kScoutBot.src = "assets/Scout_Bot.png";
-    images.kHaulerBot = new Image();
-    images.kHaulerBot.src = "assets/Hauler_Bot.png";
-    images.kHaulerBotEmpty = new Image();
-    images.kHaulerBotEmpty.src = "assets/Hauler_Bot_Empty.png";
-    images.kHaulerBotFull = new Image();
-    images.kHaulerBotFull.src = "assets/Hauler_Bot_Full.png";
-    images.mixed_ore = new Image();
-    images.mixed_ore.src = "assets/Mixed_Ore.png";
-    images.unknown = new Image();
+    const images = assetManager.images;
     let terrainImages={};
 
     //Likely connecting to the server and retrieving initial game state
@@ -395,39 +377,14 @@ function drawGame(hostname, port) {
                 unobtanium: 10*/
             };
 
-            const resource_element_start_idx = Math.max(...Object.values(elements))+1; //the index where resource elements start in the elements object
-
-            const resources = {};
-            const intermediates = {};
-
-            //Adds new game elements from resource_configs if they do not already exist
-            resource_configs.forEach(resource => {
-                let cleanName = resource.name.toLowerCase().replace('resource_', '').replace(/[\s_]+/g, '_');
-                resources[Object.keys(resources).length] = cleanName;
-                elements[cleanName] = resource_element_start_idx + Object.keys(resources).length-1;
-                images[cleanName] = new Image();
-                images[cleanName].src = 'assets/' + cleanName + '.png';
-            });
-
-            // Adds intermediate configs if they do not already exist
-            let intermediate_configs = map_config.intermediate_configs || [
-                { name: 'Circuit', id: 0 },
-                { name: 'Composite', id: 1 },
-                { name: 'Reactor_Core', id: 2 },
-                { name: 'Steel', id: 3 },
-                { name: 'Rocket_Part', id: 4 }
-            ];
-            const intermediate_element_start_idx = Math.max(...Object.values(elements)) + 1;
-            intermediate_configs.forEach(intermediate => {
-                let cleanName = intermediate.name.toLowerCase().replace('intermediate_', '').replace(/[\s_]+/g, '_');
-                intermediates[Object.keys(intermediates).length] = cleanName;
-                elements[cleanName] = intermediate_element_start_idx + Object.keys(intermediates).length - 1;
-                images[cleanName] = new Image();
-                images[cleanName].src = 'assets/' + cleanName + '.png';
-            });
-
-            const botVariants = ['kMiningBot', 'kFactoryBot', 'kScoutBot', 'kHaulerBot'];
-            const BOT_START_IDX=Math.max(...Object.values(elements))+1; //the index where bot elements start in the elements object
+            // Initialize assets dynamically from map_config using the assetManager
+            assetManager.initializeDynamicAssets(map_config);
+            
+            const elements = assetManager.elements;
+            const resources = assetManager.resources;
+            const intermediates = assetManager.intermediates;
+            const botVariants = assetManager.botVariants;
+            const BOT_START_IDX = assetManager.BOT_START_IDX;
 
             function addTerrain(terrain_name){
                 terrainImages[terrain_name] = new Image();
@@ -512,8 +469,7 @@ function drawGame(hostname, port) {
                                 break;*/
                             default:
                                 if(element < BOT_START_IDX){
-                                    let elementName = Object.keys(elements).find(key => elements[key] === element);
-                                    let image = elementName ? images[elementName] : null;
+                                    let image = assetManager.getElementImage(element);
                                     if(image && image.complete && image.naturalHeight > 0){
                                         drawASquare(col, row, terrain, image);
                                     } else {
@@ -526,29 +482,10 @@ function drawGame(hostname, port) {
                                     let variant = botVariants[variantIdx] || 'kMiningBot';
                                     let color = colors[playerIndex];
                                     
-                                    let img = images[variant];
-                                    if (variant === 'kFactoryBot') {
-                                        let botEntry = Array.from(botMap.values()).find(([pos]) => pos.x === col && ROWS - pos.y - 1 === row);
-                                        if (botEntry) {
-                                            let [_, botVariant, __, botJob, botCargo] = botEntry;
-                                            if (botJob && botJob.action === 'kBuildBot') {
-                                                img = images.kFactoryBotActive || images.kFactoryBot;
-                                            } else {
-                                                img = images.kFactoryBotIdle || images.kFactoryBot;
-                                            }
-                                        }
-                                    } else if (variant === 'kHaulerBot') {
-                                        let botEntry = Array.from(botMap.values()).find(([pos]) => pos.x === col && ROWS - pos.y - 1 === row);
-                                        if (botEntry) {
-                                            let [_, botVariant, __, botJob, botCargo] = botEntry;
-                                            let hasCargo = botCargo && botCargo.length > 0 && botCargo.some(item => item.amount > 0);
-                                            if (hasCargo) {
-                                                img = images.kHaulerBotFull || images.kHaulerBot;
-                                            } else {
-                                                img = images.kHaulerBotEmpty || images.kHaulerBot;
-                                            }
-                                        }
-                                    }
+                                    let botEntry = Array.from(botMap.values()).find(([pos]) => pos.x === col && ROWS - pos.y - 1 === row);
+                                    let botJob = botEntry ? botEntry[3] : null;
+                                    let botCargo = botEntry ? botEntry[4] : null;
+                                    let img = assetManager.getBotImage(variant, botJob, botCargo);
                                     
                                     drawABot(col, row, color, img);
                                 }
@@ -810,23 +747,7 @@ function drawGame(hostname, port) {
 
                         // Add each cargo item as a new paragraph
                         cargo.forEach(item => {
-                            let itemName = "unknown";
-                            let itemImageSrc = "./assets/mixed_ore.png";
-                            let isIntermediate = item.type === 'kIntermediate' || item.type === 1;
-                            if (isIntermediate || item.id >= map_config.resource_configs.length) {
-                                let idx = isIntermediate ? item.id : item.id - map_config.resource_configs.length;
-                                let cleanName = intermediates[idx];
-                                if (cleanName) {
-                                    itemName = cleanName;
-                                    itemImageSrc = "./assets/" + cleanName + ".png";
-                                }
-                            } else {
-                                let cleanName = resources[item.id];
-                                if (cleanName) {
-                                    itemName = cleanName;
-                                    itemImageSrc = "./assets/" + cleanName + ".png";
-                                }
-                            }
+                            let { itemName, itemImageSrc } = assetManager.getItemInfo(item, map_config);
                             
                             let mineralImage = document.createElement('img')
                             mineralImage.alt = mineralImage.title = itemName;
