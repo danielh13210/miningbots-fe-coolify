@@ -512,6 +512,27 @@ function drawGame(hostname, port) {
                 console.log('Connected to WebSocket server');
                 const subscribeRequest = JSON.stringify({ game_id: matchGameId, observer_key: CONFIG_.observer_key, observer_name: 'Observer' });
                 ws.send(subscribeRequest);
+
+                // Pre-create placeholder sidebars for all players currently in the game.
+                // Without this, idle players never appear because the observer only learns
+                // about a player when it receives a tick update for them.
+                fetch(`${http_type}://${hostname}:${port}/games`)
+                    .then(r => r.json())
+                    .then(games => {
+                        const game = games.find(g => g.game_id === matchGameId);
+                        if (!game) return;
+                        const megacontainer = document.getElementById('bot-info-megacontainer');
+                        while (sidebars.length < game.current_players) {
+                            const idx = sidebars.length;
+                            const sidebar = document.createElement('div');
+                            sidebar.classList.add('sidebar');
+                            sidebar.id = 'bot-sidebar-' + (idx + 1);
+                            sidebar.innerHTML = `<div class="player-header"><h4>Player ${idx + 1}</h4><span>Waiting for updates...</span></div>`;
+                            megacontainer.appendChild(sidebar);
+                            sidebars.push(sidebar);
+                        }
+                    })
+                    .catch(e => console.error('Failed to pre-create player sidebars:', e));
             };
 
             //When receiving message from the server, parses it and applies updates to game accordingly
@@ -574,12 +595,16 @@ function drawGame(hostname, port) {
 
             function ensurePlayer(playerId) {
                 if (!players.hasOwnProperty(playerId)) {
-                    players[playerId] = Object.keys(players).length;
-                    let sidebar=document.createElement("div");
-                    sidebar.classList.add("sidebar");
-                    sidebar.id="bot-sidebar-"+(Object.keys(players).length);
-                    document.getElementById("bot-info-megacontainer").appendChild(sidebar);
-                    sidebars.push(sidebar);
+                    const playerIndex = Object.keys(players).length;
+                    players[playerId] = playerIndex;
+                    if (playerIndex >= sidebars.length) {
+                        // No pre-created placeholder available, create one now
+                        const sidebar = document.createElement('div');
+                        sidebar.classList.add('sidebar');
+                        sidebar.id = 'bot-sidebar-' + (playerIndex + 1);
+                        document.getElementById('bot-info-megacontainer').appendChild(sidebar);
+                        sidebars.push(sidebar);
+                    }
                 }
                 return players[playerId];
             }
