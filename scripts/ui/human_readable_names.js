@@ -23,7 +23,9 @@ const NameMaps = {
     },
     variantMap: {
         "kMiningBot": "Mining Bot",
-        "kFactoryBot": "Factory Bot"
+        "kFactoryBot": "Factory Bot",
+        "kScoutBot": "Scout Bot",
+        "kHaulerBot": "Hauler Bot"
     }
 }
 NameMaps.mapName=function(table,key){

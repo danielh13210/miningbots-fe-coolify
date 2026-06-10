@@ -274,6 +274,18 @@ function drawGame(hostname, port) {
     images.kMiningBot.src = "assets/Mining_Bot.png";
     images.kFactoryBot = new Image();
     images.kFactoryBot.src = "assets/Factory_Bot.png";
+    images.kFactoryBotIdle = new Image();
+    images.kFactoryBotIdle.src = "assets/Factory_Bot_Idle.png";
+    images.kFactoryBotActive = new Image();
+    images.kFactoryBotActive.src = "assets/Factory_Bot_Active.png";
+    images.kScoutBot = new Image();
+    images.kScoutBot.src = "assets/Scout_Bot.png";
+    images.kHaulerBot = new Image();
+    images.kHaulerBot.src = "assets/Hauler_Bot.png";
+    images.kHaulerBotEmpty = new Image();
+    images.kHaulerBotEmpty.src = "assets/Hauler_Bot_Empty.png";
+    images.kHaulerBotFull = new Image();
+    images.kHaulerBotFull.src = "assets/Hauler_Bot_Full.png";
     images.mixed_ore = new Image();
     images.mixed_ore.src = "assets/Mixed_Ore.png";
     images.unknown = new Image();
@@ -385,18 +397,36 @@ function drawGame(hostname, port) {
 
             const resource_element_start_idx = Math.max(...Object.values(elements))+1; //the index where resource elements start in the elements object
 
-            const resources = {
+            const resources = {};
+            const intermediates = {};
 
-            }
-
-            // let resource_configs = result.map_config.resource_configs;
             //Adds new game elements from resource_configs if they do not already exist
             resource_configs.forEach(resource => {
-                resources[Object.keys(resources).length] = resource.name.toLowerCase();
-                elements[resource.name.toLowerCase()] = resource_element_start_idx + Object.keys(resources).length-1;
-                images[resource.name.toLowerCase()] = new Image();
-                images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
+                let cleanName = resource.name.toLowerCase().replace('resource_', '').replace(/[\s_]+/g, '_');
+                resources[Object.keys(resources).length] = cleanName;
+                elements[cleanName] = resource_element_start_idx + Object.keys(resources).length-1;
+                images[cleanName] = new Image();
+                images[cleanName].src = 'assets/' + cleanName + '.png';
             });
+
+            // Adds intermediate configs if they do not already exist
+            let intermediate_configs = map_config.intermediate_configs || [
+                { name: 'Circuit', id: 0 },
+                { name: 'Composite', id: 1 },
+                { name: 'Reactor_Core', id: 2 },
+                { name: 'Steel', id: 3 },
+                { name: 'Rocket_Part', id: 4 }
+            ];
+            const intermediate_element_start_idx = Math.max(...Object.values(elements)) + 1;
+            intermediate_configs.forEach(intermediate => {
+                let cleanName = intermediate.name.toLowerCase().replace('intermediate_', '').replace(/[\s_]+/g, '_');
+                intermediates[Object.keys(intermediates).length] = cleanName;
+                elements[cleanName] = intermediate_element_start_idx + Object.keys(intermediates).length - 1;
+                images[cleanName] = new Image();
+                images[cleanName].src = 'assets/' + cleanName + '.png';
+            });
+
+            const botVariants = ['kMiningBot', 'kFactoryBot', 'kScoutBot', 'kHaulerBot'];
             const BOT_START_IDX=Math.max(...Object.values(elements))+1; //the index where bot elements start in the elements object
 
             function addTerrain(terrain_name){
@@ -482,18 +512,45 @@ function drawGame(hostname, port) {
                                 break;*/
                             default:
                                 if(element < BOT_START_IDX){
-                                    const resourceId = resources[element-resource_element_start_idx];
-                                    let image=images[resourceId.toLowerCase()];
-                                    if(image.complete && image.naturalHeight > 0){
+                                    let elementName = Object.keys(elements).find(key => elements[key] === element);
+                                    let image = elementName ? images[elementName] : null;
+                                    if(image && image.complete && image.naturalHeight > 0){
                                         drawASquare(col, row, terrain, image);
                                     } else {
                                         ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                                     }
                                 } else {
-                                    let playerIndex = Math.floor((element - BOT_START_IDX) / 2);
-                                    let variant = (element - BOT_START_IDX) % 2 === 0 ? 'kMiningBot' : 'kFactoryBot';
-                                    let color=colors[playerIndex];
-                                    drawABot(col, row, color, images[variant]);
+                                    let botOffset = element - BOT_START_IDX;
+                                    let playerIndex = Math.floor(botOffset / botVariants.length);
+                                    let variantIdx = botOffset % botVariants.length;
+                                    let variant = botVariants[variantIdx] || 'kMiningBot';
+                                    let color = colors[playerIndex];
+                                    
+                                    let img = images[variant];
+                                    if (variant === 'kFactoryBot') {
+                                        let botEntry = Array.from(botMap.values()).find(([pos]) => pos.x === col && ROWS - pos.y - 1 === row);
+                                        if (botEntry) {
+                                            let [_, botVariant, __, botJob, botCargo] = botEntry;
+                                            if (botJob && botJob.action === 'kBuildBot') {
+                                                img = images.kFactoryBotActive || images.kFactoryBot;
+                                            } else {
+                                                img = images.kFactoryBotIdle || images.kFactoryBot;
+                                            }
+                                        }
+                                    } else if (variant === 'kHaulerBot') {
+                                        let botEntry = Array.from(botMap.values()).find(([pos]) => pos.x === col && ROWS - pos.y - 1 === row);
+                                        if (botEntry) {
+                                            let [_, botVariant, __, botJob, botCargo] = botEntry;
+                                            let hasCargo = botCargo && botCargo.length > 0 && botCargo.some(item => item.amount > 0);
+                                            if (hasCargo) {
+                                                img = images.kHaulerBotFull || images.kHaulerBot;
+                                            } else {
+                                                img = images.kHaulerBotEmpty || images.kHaulerBot;
+                                            }
+                                        }
+                                    }
+                                    
+                                    drawABot(col, row, color, img);
                                 }
                         }
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
@@ -608,14 +665,9 @@ function drawGame(hostname, port) {
                 botMap.set(id, [position, variant, current_energy, job, cargo, playerIndex]);
                 var newRow = ROWS - position.y - 1;
                 var newCol = position.x;
-                var playerNum = '';
-                if (playerIndex == 0) {
-                    playerNum = 'One';
-                } else {
-                    playerNum = 'Two';
-                }
-                var element = String(variant) + playerNum;
-                gameState[newRow][newCol] = elements[element];
+                let variantIdx = botVariants.indexOf(variant);
+                if (variantIdx === -1) variantIdx = 0;
+                gameState[newRow][newCol] = BOT_START_IDX + playerIndex * botVariants.length + variantIdx;
                 renderBots();
             }
 
@@ -695,12 +747,9 @@ function drawGame(hostname, port) {
 
             function renderBots() {
                 for (const [id, [position, variant, current_energy, job, cargo, playerIndex]] of botMap.entries()) {
-                    var playerNum = '';
-                    var element = String(variant) + playerNum;
-                    //create a mapping from bot variant and player index to gameState element
-                    // e.g. kMiningBot and playerIndex 0 -> 500
-                    // e.g. kFactoryBot and playerIndex 1 -> 503
-                    gameState[ROWS - position.y - 1][position.x] = BOT_START_IDX + playerIndex * 2 + (variant === 'kFactoryBot' ? 1 : 0);
+                    let variantIdx = botVariants.indexOf(variant);
+                    if (variantIdx === -1) variantIdx = 0; // Fallback
+                    gameState[ROWS - position.y - 1][position.x] = BOT_START_IDX + playerIndex * botVariants.length + variantIdx;
                 }
             }
             //shows a row for each player showing each bot and their data
@@ -761,14 +810,30 @@ function drawGame(hostname, port) {
 
                         // Add each cargo item as a new paragraph
                         cargo.forEach(item => {
-                            //Image of the mineral
+                            let itemName = "unknown";
+                            let itemImageSrc = "./assets/mixed_ore.png";
+                            let isIntermediate = item.type === 'kIntermediate' || item.type === 1;
+                            if (isIntermediate || item.id >= map_config.resource_configs.length) {
+                                let idx = isIntermediate ? item.id : item.id - map_config.resource_configs.length;
+                                let cleanName = intermediates[idx];
+                                if (cleanName) {
+                                    itemName = cleanName;
+                                    itemImageSrc = "./assets/" + cleanName + ".png";
+                                }
+                            } else {
+                                let cleanName = resources[item.id];
+                                if (cleanName) {
+                                    itemName = cleanName;
+                                    itemImageSrc = "./assets/" + cleanName + ".png";
+                                }
+                            }
+                            
                             let mineralImage = document.createElement('img')
-                            mineralImage.alt=mineralImage.title=map_config.resource_configs[item.id].name;
-                            mineralImage.src = "./assets/" + String(resources[item.id]) + ".png"
+                            mineralImage.alt = mineralImage.title = itemName;
+                            mineralImage.src = itemImageSrc;
                             mineralImage.style = "width: 1vw; height: 1vw"
                             cargoContainer.appendChild(mineralImage);
 
-                            //Text describing how much of the mineral there is
                             let mineralAmt = document.createElement('p')
                             mineralAmt.innerHTML = `${item.amount}`
                             cargoContainer.appendChild(mineralAmt)
