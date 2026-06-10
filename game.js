@@ -363,23 +363,9 @@ function drawGame(hostname, port) {
 
             let resource_configs = map_config.resource_configs;
 
-            const elements = {
-                /*kMiningBotOne: 0,
-                kFactoryBotOne: 1,
-                kMiningBotTwo: 2,
-                kFactoryBotTwo: 3,*/
-                unknown: 4,
-                traversable: 5,
-                resource: 6,
-                /*granite: 7,
-                vibranium: 8,
-                adamantite: 9,
-                unobtanium: 10*/
-            };
-
             // Initialize assets dynamically from map_config using the assetManager
             assetManager.initializeDynamicAssets(map_config);
-            
+
             const elements = assetManager.elements;
             const resources = assetManager.resources;
             const intermediates = assetManager.intermediates;

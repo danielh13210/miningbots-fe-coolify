@@ -3,7 +3,7 @@ let dropdownMenu_;
 let navigation_dropdown_;
 
 navigation_link_=document.getElementById('navbarDropdownMenuLink');
-dropdownMenu_=document.getElementById('dropdown-menu');
+dropdownMenu_=document.querySelector('.dropdown-menu[aria-labelledby="navbarDropdownMenuLink"]');
 navigation_dropdown_ = bootstrap.Dropdown.getOrCreateInstance(navigation_link_);
 
 let NavigationManager={
