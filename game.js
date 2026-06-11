@@ -423,22 +423,6 @@ function drawGame(hostname, port) {
                         const element = gameState[row][col];
                         const terrain = terrains[row][col];
                         switch (element) {
-                            /*case elements.kFactoryBotOne: // Blue
-                                drawABot(col, row, '#25537b', images.kFactoryBot);
-                                //drawASquare(col, row, terrain, images.kFactoryBot);
-                                break;
-                            case elements.kMiningBotOne: // Blue
-                                drawABot(col, row, '#25537b', images.kMiningBot);
-                                //drawASquare(col, row, terrain, images.kMiningBot);
-                                break;
-                            case elements.kFactoryBotTwo: // Red
-                                drawABot(col, row, '#AA4344', images.kFactoryBot);
-                                //drawASquare(col, row, terrain, images.kFactoryBot);
-                                break;
-                            case elements.kMiningBotTwo: // Red
-                                drawABot(col, row, '#AA4344', images.kMiningBot);
-                                //drawASquare(col, row, terrain, images.kMiningBot);
-                                break;*/
                             case elements.unknown:
                                 ctx.fillStyle = '#1a3320';
                                 ctx.fillRect(col * GRID_SIZE - borderWidth, row * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
@@ -449,18 +433,6 @@ function drawGame(hostname, port) {
                             case elements.resource:
                                 ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                                 break;
-                            /*case elements.granite:
-                                drawASquare(col, row, terrain, images.granite);
-                                break;
-                            case elements.vibranium:
-                                drawASquare(col, row, terrain, images.vibranium);
-                                break;
-                            case elements.adamantite:
-                                drawASquare(col, row, terrain, images.adamantite);
-                                break;
-                            case elements.unobtanium:
-                                drawASquare(col, row, terrain, images.unobtanium);
-                                break;*/
                             default:
                                 if(element < BOT_START_IDX){
                                     let image = assetManager.getElementImage(element);
@@ -768,19 +740,6 @@ function drawGame(hostname, port) {
             //Updates the state of a tile on the map
             function updateLand(data) {
                 const { position: { x, y }, is_traversable, resources, terrain_id } = data;
-                /*switch (terrain_id) {
-                    case 0:
-                        terrains[ROWS - y - 1][x] = terrainImages.grassland;
-                        break;
-                    case 1:
-                        terrains[ROWS - y - 1][x] = terrainImages.hills;
-                        break
-                    case 2:
-                        terrains[ROWS - y - 1][x] = terrainImages.mountain;
-                        break;
-                    default:
-                        terrains[ROWS - y - 1][x] = terrainImages.unknown;
-                }*/
                 let terrain_name = 'unknown';
                 if(terrain_id < map_config.terrain_configs.length){
                     terrain_name = map_config.terrain_configs[terrain_id].name.toLowerCase();
@@ -797,24 +756,6 @@ function drawGame(hostname, port) {
                                 highestId = resource.id;
                             }
                         })
-
-/*                        switch (highestId) {
-                            case 0:
-                                gameState[ROWS - y - 1][x] = elements.granite;
-                                break;
-                            case 1:
-                                gameState[ROWS - y - 1][x] = elements.vibranium;
-                                break;
-                            case 2:
-                                gameState[ROWS - y - 1][x] = elements.adamantite;
-                                break;
-                            case 3:
-                                gameState[ROWS - y - 1][x] = elements.unobtanium;
-                                break;
-                            default:
-                                gameState[ROWS - y - 1][x] = elements.resource;
-                                break;
-                        }*/
                         let cleanName = assetManager.resources[highestId];
                         if(cleanName !== undefined && elements[cleanName] !== undefined){
                             gameState[ROWS - y - 1][x] = elements[cleanName];

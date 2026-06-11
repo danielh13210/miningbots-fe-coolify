@@ -39,6 +39,7 @@ export class AssetManager {
         this.images.mixed_ore = new Image();
         this.images.mixed_ore.src = "assets/Resource_Mixed_Ore.png";
         this.images.unknown = new Image();
+        this.images.unknown.src = "assets/unknown.jpg";
     }
 
     initializeDynamicAssets(mapConfig) {

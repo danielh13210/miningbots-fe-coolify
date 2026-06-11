@@ -84,22 +84,20 @@ Existing assets that are present and usable:
 
 ## Priority 4: Cleanup
 
-### 4.1 Remove dead commented-out code in render switch
+### ~~4.1 Remove dead commented-out code in render switch~~ DONE
 Large blocks of commented-out case statements (`kFactoryBotOne`, `kMiningBotTwo`, `granite`, `vibranium`, etc.) in the render loop and `updateLand`. These are fully superseded by the dynamic approach.
 
 **Files**: `game.js`
 
-### 4.2 `images.unknown` has no src
+### ~~4.2 `images.unknown` has no src~~ DONE
 `asset_manager.js:37` creates `new Image()` with no source. Either assign `assets/unknown.jpg` or remove it and handle the case explicitly.
 
 **Files**: `scripts/ui/asset_manager.js`
 
-### 4.3 Magic numbers for base element IDs
-`unknown = 4`, `traversable = 5`, `resource = 6` could start at 0 now that bots are dynamically indexed. Low priority cosmetic fix.
+### 4.3 Magic numbers for base element IDs — SKIPPED
+Purely cosmetic; not worth the risk of touching IDs that flow through multiple places.
 
-**Files**: `scripts/ui/asset_manager.js`
-
-### 4.4 Resource fallback points to deleted assets
+### ~~4.4 Resource fallback points to deleted assets~~ DONE (removed during P1 rewrite)
 The `onerror` fallback for resource images tries `'assets/' + cleanName + '.png'` (e.g. `assets/granite.png`), but those old lowercase files were deleted in this branch. The fallback is dead code.
 
 **Files**: `scripts/ui/asset_manager.js`
