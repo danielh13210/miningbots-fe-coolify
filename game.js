@@ -158,7 +158,7 @@ if(server && servers[server]){
                 function empty_handler() {
                     setServerName(servers[server].name.replace(/\.+$/, ""));
                     LoadingBox.setStatus(LoadingBox.Status.SERVER_UNAVAILABLE);
-                    setTimeout(NavigationManager.showNavigation,200);
+                    setTimeout(window.NavigationManager.showNavigation,200);
                 }
                 function prompt_socket(previous_socket) {
                     DialogUtilities.prompt("Please enter the socket URL for the custom server:", "Socket URL", previous_socket, socket_obtained, empty_handler);
@@ -213,25 +213,24 @@ if(server && servers[server]){
     }
 }
 
-// Function to populate the dropdown menu
-function populateDropdown() {
-    let dropdownMenu = document.querySelector(".dropdown-menu");
+function populateServerMenu() {
+    let serverMenu = document.querySelector(".server-menu");
     Object.keys(servers).forEach(function (key) {
         let server = servers[key];
-        let menuItem = `<a class="dropdown-item" href="#" data-url="${key}">${server.name}</a>`;
-        dropdownMenu.innerHTML += menuItem;
+        let menuItem = `<a class="server-menu-item" href="#" data-url="${key}">${server.name}</a>`;
+        serverMenu.innerHTML += menuItem;
     });
 }
 
-// Event listener for dropdown item click
 document.addEventListener("DOMContentLoaded", function () {
-    populateDropdown();
+    populateServerMenu();
 
-    let dropdownItems = document.querySelectorAll(".dropdown-item");
-    dropdownItems.forEach(function (item) {
+    let serverMenuItems = document.querySelectorAll(".server-menu-item");
+    serverMenuItems.forEach(function (item) {
         item.addEventListener("click", function (event) {
             event.preventDefault();
             selectedServerUrl = this.getAttribute("data-url");
+            window.NavigationManager.hideNavigation();
             console.log(selectedServerUrl);
             let selectedServerName = this.textContent;
             setServerName(selectedServerName);
@@ -466,13 +465,16 @@ function drawGame(hostname, port) {
             }
 
             // randomState();
-            render();
-
-            const ws = new WebSocket(`${ws_type}://${hostname}:${port}/observer`);
+            // Declared before the first render() call: render() reads botMap
+            // (and the resize handler can call render() too), so these must be
+            // initialized first to avoid a temporal-dead-zone ReferenceError.
             const botMap = new Map();
             const jobMap = new Map();
             const players = {};
             const playerNames = {};
+            render();
+
+            const ws = new WebSocket(`${ws_type}://${hostname}:${port}/observer`);
 
             ws.onopen = function () {
                 console.log('Connected to WebSocket server');
@@ -824,18 +826,18 @@ function drawGame(hostname, port) {
                         console.log('cargo: ', cargo);
                         botDiv.classList.add('bot-info');
                         botDiv.innerHTML = `
-                <h4 style="margin: 2px 0; padding: 0;"><b>${NameMaps.mapName("variantMap", variant)}</b> ${id}</h4>
-                <hr style="margin: 2px 0;">
-                <p style="margin: 2px 0; padding: 0;"><b>Position:</b> ${position.x}, ${position.y}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Energy:</b> ${current_energy}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p>
-                <hr style="margin: 2px 0;">
+                <h4 class="bot-title"><b>${NameMaps.mapName("variantMap", variant)}</b> ${id}</h4>
+                <hr class="bot-divider">
+                <p class="bot-detail"><b>Position:</b> ${position.x}, ${position.y}</p>
+                <p class="bot-detail"><b>Energy:</b> ${current_energy}</p>
+                <p class="bot-detail"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p>
+                <hr class="bot-divider">
             `;
 // , ${job.status}
                         const cargoContainer = document.createElement('div');
 
                         //Creating a grid: left side will be image of mineral, right side will be count of mineral
-                        cargoContainer.style = "display: grid; grid-template-columns: auto auto; grid-gap: 0.05vw; padding: 0.1vw"
+                        cargoContainer.classList.add('cargo-grid');
 
                         // Add each cargo item as a new paragraph
                         cargo.forEach(item => {
@@ -844,7 +846,7 @@ function drawGame(hostname, port) {
                             let mineralImage = document.createElement('img')
                             mineralImage.alt = mineralImage.title = itemName;
                             mineralImage.src = itemImageSrc;
-                            mineralImage.style = "width: 1vw; height: 1vw"
+                            mineralImage.classList.add('cargo-icon');
                             cargoContainer.appendChild(mineralImage);
 
                             let mineralAmt = document.createElement('p')
