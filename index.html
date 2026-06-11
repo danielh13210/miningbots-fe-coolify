@@ -16,64 +16,103 @@
 </head>
 
 <body>
-  <div id="nav-peek-triggerbox"></div>
-  <nav class="app-nav competition-disabled">
-    <img alt="tinkertanker logo" src="favicon.ico" class="app-brand-logo">
-    <a class="app-brand" href="#">Mining Bots</a>
-    <button class="app-nav-toggle" type="button" aria-controls="serverNavPanel" aria-expanded="false"
-      aria-label="Toggle navigation" onclick="event.stopPropagation();NavigationManager.toggleNavigation();">
-      <span class="app-nav-toggle-icon"></span>
-    </button>
-    <div class="app-nav-panel" id="serverNavPanel">
-      <ul class="app-nav-list">
-        <li class="server-menu-wrap">
-          <a class="server-menu-trigger" href="#" id="serverMenuButton" role="button"
-            aria-haspopup="true" aria-expanded="false">
-            Select a server
-          </a>
-          <div class="server-menu hidden" aria-labelledby="serverMenuButton">
-            <!-- Server options are dynamically populated. -->
-          </div>
-        </li>
-      </ul>
-    </div>
-    <div class="app-nav-actions">
-      <a class="icon-button" role="button" title="Enter Competition Mode" onclick="CompetitionManager.toggleFullscreen()" id="fullscreen-button" helpon-available><svgfile id="fullscreen-icon" aria-hidden="true" src="/assets/ui/fullscreen.svg"></svgfile></a>
-      <a class="icon-button" role="button" title="Settings" onclick="SettingsManager.open_popup();" id="settings-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/settings.svg"></svgfile></a>
-    </div>
-    <script type="module">
-      import SVGImporter from "./scripts/utilities/svgimporter.js";
-      import KeyboardUtilities from "./scripts/utilities/keyboard_utilities.js";
-      document.addEventListener('fullscreenchange', (event) => {
-        let title,icon;
-        if(document.fullscreenElement){
-          title="Exit Competition Mode";
-          icon="exit_fullscreen";
-        } else {
-          title="Enter Competition Mode";
-          icon="fullscreen";
-        }
-        document.getElementById("fullscreen-button").title=`${title} (${KeyboardUtilities.joinMnemonic(false,'F')})`; //reappend mnemonic so it doesn't disappear when fullscreen changes
-        let svgicon=document.createElement("svgfile");
-        svgicon.ariaHidden=true;
-        svgicon.id="fullscreen-icon";
-        svgicon.setAttribute("src",`/assets/ui/${icon}.svg`);
-        document.getElementById("fullscreen-icon").replaceWith(svgicon);
-        SVGImporter.reimport();
-      });
-    </script>
-  </nav>
-
   <!--Allows the game canvas and a collection of players' bots to be aligned side-by-side horizontally-->
   <div class="app-shell" id="game-info-container">
     <!--The drawing of the game-->
-    <canvas id="gameCanvas" aria-label="game map view"></canvas>
+    <main class="map-pane" aria-label="game map">
+      <div class="map-viewport" id="map-viewport">
+        <div class="map-canvas-stage" id="map-canvas-stage">
+          <canvas id="gameCanvas" aria-label="game map view"></canvas>
+        </div>
+      </div>
+    </main>
 
     <!--A DIV to hold all the player-bot info-->
     <div class="sidebar-container" id="bot-info-megacontainer">
+      <div class="sidebar-chrome">
+        <div id="nav-peek-triggerbox"></div>
+        <nav class="app-nav competition-disabled">
+          <img alt="tinkertanker logo" src="favicon.ico" class="app-brand-logo" width="30" height="30">
+          <a class="app-brand" href="#">Mining Bots</a>
+          <button class="app-nav-toggle" type="button" aria-controls="serverNavPanel" aria-expanded="false"
+            aria-label="Toggle navigation" onclick="event.stopPropagation();NavigationManager.toggleNavigation();">
+            <span class="app-nav-toggle-icon"></span>
+          </button>
+          <div class="app-nav-panel" id="serverNavPanel">
+            <ul class="app-nav-list">
+              <li class="server-menu-wrap">
+                <a class="server-menu-trigger" href="#" id="serverMenuButton" role="button"
+                  aria-haspopup="true" aria-expanded="false">
+                  Select a server
+                </a>
+                <div class="server-menu hidden" aria-labelledby="serverMenuButton">
+                  <!-- Server options are dynamically populated. -->
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div class="app-nav-actions">
+            <a class="icon-button" role="button" title="Enter Competition Mode" onclick="CompetitionManager.toggleFullscreen()" id="fullscreen-button" helpon-available><svgfile id="fullscreen-icon" aria-hidden="true" src="/assets/ui/fullscreen.svg"></svgfile></a>
+            <a class="icon-button" role="button" title="Settings" onclick="SettingsManager.open_popup();" id="settings-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/settings.svg"></svgfile></a>
+          </div>
+          <script type="module">
+            import SVGImporter from "./scripts/utilities/svgimporter.js";
+            import KeyboardUtilities from "./scripts/utilities/keyboard_utilities.js";
+            document.addEventListener('fullscreenchange', (event) => {
+              let title,icon;
+              if(document.fullscreenElement){
+                title="Exit Competition Mode";
+                icon="exit_fullscreen";
+              } else {
+                title="Enter Competition Mode";
+                icon="fullscreen";
+              }
+              document.getElementById("fullscreen-button").title=`${title} (${KeyboardUtilities.joinMnemonic(false,'F')})`; //reappend mnemonic so it doesn't disappear when fullscreen changes
+              let svgicon=document.createElement("svgfile");
+              svgicon.ariaHidden=true;
+              svgicon.id="fullscreen-icon";
+              svgicon.setAttribute("src",`/assets/ui/${icon}.svg`);
+              document.getElementById("fullscreen-icon").replaceWith(svgicon);
+              SVGImporter.reimport();
+            });
+          </script>
+        </nav>
+
+        <section id="game-status-panel" class="game-status-panel competition-disabled" aria-live="polite">
+          <div class="game-status-item">
+            <span class="game-status-label">Server</span>
+            <span class="game-status-value" id="status-server">-</span>
+          </div>
+          <div class="game-status-item">
+            <span class="game-status-label">Game</span>
+            <span class="game-status-value" id="status-game">-</span>
+          </div>
+          <div class="game-status-item">
+            <span class="game-status-label">Status</span>
+            <span class="game-status-value status-pill" id="status-state">-</span>
+          </div>
+          <div class="game-status-item">
+            <span class="game-status-label">Players</span>
+            <span class="game-status-value" id="status-players">-</span>
+          </div>
+          <div class="game-status-item">
+            <span class="game-status-label">Map</span>
+            <span class="game-status-value" id="status-map">-</span>
+          </div>
+        </section>
+
+        <div class="map-controls" aria-label="Map controls">
+          <button class="map-control-button" type="button" id="zoom-out-button" title="Zoom out">-</button>
+          <span class="map-zoom-label" id="map-zoom-label">100%</span>
+          <button class="map-control-button" type="button" id="zoom-in-button" title="Zoom in">+</button>
+          <button class="map-control-button" type="button" id="zoom-reset-button" title="Reset zoom">1:1</button>
+        </div>
+      </div>
+      <div class="player-sidebar-list" id="player-sidebar-list">
       <!--For the purpose of allowing >2 players to be shown, probably best to also dynamically populate this-->
       <!-- <div class="sidebar" id="bot-sidebar-one"></div>
       <div class="sidebar" id="bot-sidebar-two"></div> -->
+      </div>
     </div>
     <noscript id="page-cover">
       <p id="page-cover-content">

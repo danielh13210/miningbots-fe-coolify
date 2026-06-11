@@ -48,7 +48,7 @@
   }
 
   svg {
-    @apply w-8 px-0.5;
+    @apply h-5 w-5;
   }
 
   body.dark-mode a[role="button"] svg {
@@ -66,11 +66,11 @@
 
 @layer components {
   .app-shell {
-    @apply grid grid-cols-[auto_auto];
+    @apply grid h-screen w-screen grid-cols-[minmax(0,1fr)_minmax(19rem,24vw)] overflow-hidden bg-slate-950;
   }
 
   .app-nav {
-    @apply flex min-h-12 items-center gap-2 border-b border-slate-200 bg-slate-50 px-[1%] py-2;
+    @apply flex min-h-12 items-center gap-2 border-b border-slate-200 bg-slate-50 px-2 py-2;
   }
 
   #settings-nav.app-nav {
@@ -82,11 +82,11 @@
   }
 
   .app-brand-logo {
-    @apply mr-2.5 h-[30px];
+    @apply mr-1 h-[30px] w-[30px] shrink-0;
   }
 
   .app-brand {
-    @apply whitespace-nowrap text-lg font-semibold text-ink;
+    @apply min-w-0 truncate whitespace-nowrap text-base font-semibold text-ink;
   }
 
   #nav-peek-triggerbox {
@@ -112,7 +112,7 @@
   }
 
   .app-nav-panel {
-    @apply relative flex flex-1 items-center;
+    @apply relative flex min-w-0 flex-1 items-center;
   }
 
   .app-nav-list {
@@ -124,7 +124,7 @@
   }
 
   .server-menu-trigger {
-    @apply block rounded px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200;
+    @apply block max-w-36 truncate rounded px-2 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200;
   }
 
   .server-menu {
@@ -136,23 +136,77 @@
   }
 
   .app-nav-actions {
-    @apply ml-auto flex items-center gap-1;
+    @apply ml-auto flex shrink-0 items-center gap-1;
   }
 
   .icon-button {
-    @apply inline-flex items-center justify-center;
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-slate-200 bg-white;
+  }
+
+  .icon-button svg,
+  .icon-button svgfile {
+    @apply h-5 w-5 shrink-0;
   }
 
   body:fullscreen .competition-disabled:not(:hover):not(:focus-within) {
     display: none;
   }
 
+  .game-status-panel {
+    @apply grid grid-cols-2 gap-px border-b border-slate-200 bg-slate-200 text-xs;
+  }
+
+  .game-status-item {
+    @apply flex min-h-10 items-center justify-between gap-2 bg-white px-2.5 py-1.5;
+  }
+
+  .game-status-label {
+    @apply whitespace-nowrap text-[10px] font-bold uppercase text-slate-500;
+  }
+
+  .game-status-value {
+    @apply min-w-0 truncate text-right font-semibold text-slate-800;
+  }
+
+  .status-pill {
+    @apply rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px];
+  }
+
+  .status-pill[data-status="kInProgress"] {
+    @apply border-green-200 bg-green-50 text-green-700;
+  }
+
+  .status-pill[data-status="kRunning"] {
+    @apply border-green-200 bg-green-50 text-green-700;
+  }
+
+  .status-pill[data-status="kOpen"],
+  .status-pill[data-status="kFull"] {
+    @apply border-sky-200 bg-sky-50 text-sky-700;
+  }
+
+  .status-pill[data-status="kNotStarted"] {
+    @apply border-amber-200 bg-amber-50 text-amber-700;
+  }
+
+  .status-pill[data-status="kEnded"] {
+    @apply border-slate-300 bg-slate-100 text-slate-600;
+  }
+
   .sidebar-container {
-    @apply relative right-0 w-auto bg-slate-200;
+    @apply relative right-0 flex h-screen min-w-0 flex-col overflow-hidden border-l border-slate-300 bg-slate-200;
+  }
+
+  .sidebar-chrome {
+    @apply shrink-0 border-b border-slate-300 bg-slate-100;
+  }
+
+  .player-sidebar-list {
+    @apply min-h-0 flex-1 overflow-y-auto;
   }
 
   .sidebar {
-    @apply block min-h-[20%] w-auto overflow-x-auto overflow-y-hidden border-b border-slate-300 bg-panel p-1.5 shadow-[-2px_0_5px_rgba(15,23,42,0.08)];
+    @apply block w-auto overflow-x-hidden overflow-y-visible border-b border-slate-300 bg-panel p-1.5 shadow-[-2px_0_5px_rgba(15,23,42,0.08)];
   }
 
   .player-header {
@@ -196,11 +250,11 @@
   }
 
   .bot-box {
-    @apply flex w-full gap-1 overflow-x-auto overflow-y-hidden;
+    @apply grid w-full grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-1;
   }
 
   .bot-info {
-    @apply m-0.5 min-w-36 rounded-md border border-slate-200 bg-white p-1.5;
+    @apply m-0 min-w-0 rounded-md border border-slate-200 bg-white p-1.5 text-left transition-colors hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500;
   }
 
   .bot-title {
@@ -265,7 +319,36 @@
   }
 
   .cargo-icon {
-    @apply h-4 w-4 object-contain;
+    @apply h-4 w-4 shrink-0 object-contain;
+  }
+
+  .map-pane {
+    @apply min-h-0 min-w-0 overflow-hidden bg-slate-950;
+  }
+
+  .map-viewport {
+    @apply h-full w-full overflow-auto bg-slate-950;
+  }
+
+  .map-canvas-stage {
+    @apply relative min-h-full min-w-full;
+  }
+
+  #gameCanvas {
+    @apply block;
+    image-rendering: pixelated;
+  }
+
+  .map-controls {
+    @apply grid grid-cols-[2.25rem_minmax(3.5rem,1fr)_2.25rem_3rem] gap-1 border-b border-slate-200 bg-white p-2;
+  }
+
+  .map-control-button {
+    @apply flex h-8 items-center justify-center rounded border border-slate-300 bg-slate-50 px-2 text-xs font-bold text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 active:bg-slate-200;
+  }
+
+  .map-zoom-label {
+    @apply flex h-8 items-center justify-center rounded border border-slate-200 bg-white text-xs font-bold text-slate-700;
   }
 
   #loadingbox {

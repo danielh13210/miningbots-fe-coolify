@@ -263,8 +263,82 @@ async function fetchPlayerNames(gameId, playerIds) {
     }
 }
 
+function formatServerStatus(status) {
+    return String(status || '-').replace(/^k/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
+function formatDisplayStatus(game, hasObservedTick) {
+    switch (game?.game_status) {
+        case 'kOpen':
+            return hasObservedTick ? 'Running' : 'Open / waiting for updates';
+        case 'kFull':
+            return hasObservedTick ? 'Running / full' : 'Full / waiting for updates';
+        case 'kNotStarted':
+            return 'Not started';
+        case 'kEnded':
+            return 'Ended';
+        default:
+            return formatServerStatus(game?.game_status);
+    }
+}
+
+function setText(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+}
+
+function renderGameStatus(game, mapConfig, hasObservedTick = false) {
+    if (!game) return;
+    const serverName = servers[server]?.name || server || `${hostname}:${port}`;
+    const gameName = game.game_name || `Game ${game.game_id}`;
+    const playerText = `${game.current_players ?? '-'} / ${game.max_players ?? mapConfig?.max_players ?? '-'}`;
+    const mapText = mapConfig ? `${mapConfig.max_x} x ${mapConfig.max_y}` : '-';
+    const statusText = formatDisplayStatus(game, hasObservedTick);
+    const statusState = document.getElementById('status-state');
+
+    setText('status-server', serverName);
+    setText('status-game', gameName);
+    setText('status-state', statusText);
+    setText('status-players', playerText);
+    setText('status-map', mapText);
+
+    if (statusState) {
+        statusState.dataset.status = hasObservedTick ? 'kRunning' : (game.game_status || '');
+        statusState.title = `Server status: ${formatServerStatus(game.game_status)}`;
+    }
+}
+
+async function refreshGameStatus(matchGameId, mapConfig, hasObservedTick = false) {
+    try {
+        const response = await fetch(`${http_type}://${hostname}:${port}/games`, { method: 'GET' });
+        if (!response.ok) throw new Error(response.statusText);
+        const games = await response.json();
+        const game = games.find(g => g.game_id === matchGameId);
+        if (game) renderGameStatus(game, mapConfig, hasObservedTick);
+        return game;
+    } catch (error) {
+        console.error('Failed to refresh game status:', error);
+        return null;
+    }
+}
+
+function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGame) {
+    const poll = async () => {
+        const game = await refreshGameStatus(matchGameId, mapConfig, getHasObservedTick());
+        if (game && typeof onGame === 'function') onGame(game);
+    };
+    poll();
+    return window.setInterval(poll, 3000);
+}
+
 function drawGame(hostname, port) {
     const canvas = document.getElementById("gameCanvas");
+    const mapViewport = document.getElementById("map-viewport");
+    const mapStage = document.getElementById("map-canvas-stage");
+    const zoomLabel = document.getElementById("map-zoom-label");
+    const zoomInButton = document.getElementById("zoom-in-button");
+    const zoomOutButton = document.getElementById("zoom-out-button");
+    const zoomResetButton = document.getElementById("zoom-reset-button");
     const ctx = canvas.getContext("2d");
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
@@ -286,8 +360,10 @@ function drawGame(hostname, port) {
         })
         .then(games => {
             console.log('games:', games);
-            let gameId = games[0].game_id;
-            let gameStatus = games[0].game_status;
+            let selectedGame = games[0];
+            let gameId = selectedGame.game_id;
+            let gameStatus = selectedGame.game_status;
+            renderGameStatus(selectedGame);
             if (gameStatus == 'kEnded') {
                 console.log('failed to subscribe because game has ended');
                 throw new GameUnvailableError('Game has ended');
@@ -297,7 +373,7 @@ function drawGame(hostname, port) {
                 method: 'GET'
             });
 
-            return { response: fetch_map_config, game_id: gameId };
+            return { response: fetch_map_config, game_id: gameId, game: selectedGame };
         })
         .then(async result => {
             let response = await result.response;
@@ -305,7 +381,7 @@ function drawGame(hostname, port) {
             if (response.ok) {
                 console.log('Second fetch response:', response);
                 LoadingBox.setStatus(LoadingBox.Status.LOADING_COMPLETED);
-                return { map_config: response.json(), game_id: result.game_id };
+                return { map_config: response.json(), game_id: result.game_id, game: result.game };
             } else {
                 throw new Error(response.statusText);
             }
@@ -314,13 +390,26 @@ function drawGame(hostname, port) {
         .then(async result => {
             let map_config = await result.map_config;
             const matchGameId = result.game_id;
+            let selectedGameInfo = result.game;
+            let hasObservedTick = false;
+            renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
+            startGameStatusPolling(
+                matchGameId,
+                map_config,
+                () => hasObservedTick,
+                game => { selectedGameInfo = game; }
+            );
             console.log('map_config:', map_config);
             // rendring information
 
             // browser window dimensions
             var GRID_SIZE;
-            var screenWidth = window.innerWidth;
-            var screenHeight = window.innerHeight;
+            var mapViewportWidth = mapViewport?.clientWidth || window.innerWidth;
+            var mapViewportHeight = mapViewport?.clientHeight || window.innerHeight;
+            var mapZoom = 1;
+            const MIN_MAP_ZOOM = 0.5;
+            const MAX_MAP_ZOOM = 4;
+            const MAP_ZOOM_STEP = 0.25;
             // map dimensions
             const COLS = map_config.max_x;
             const ROWS = map_config.max_y;
@@ -339,26 +428,85 @@ function drawGame(hostname, port) {
             });
             console.log(COLS);
 
-            // Update canvas dimensions
-            canvas.width = COLS * GRID_SIZE;
-            canvas.height = ROWS * GRID_SIZE;
-
-            //Since final canvas dimensions are known, resize the container that holds canvas and DIV for bot-info DIVs
-            //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
-            document.getElementById("game-info-container").style = "display: grid; grid-template-columns: " + canvas.width + "px " + (screenWidth - canvas.width) + "px"
-
             function updateDimensions(lazy_render) {
-                // browser window dimensions
-                screenWidth = window.innerWidth;
-                screenHeight = window.innerHeight;
-                GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
-                // Update canvas dimensions
-                canvas.width = COLS * GRID_SIZE;
-                canvas.height = ROWS * GRID_SIZE;
+                mapViewportWidth = mapViewport?.clientWidth || window.innerWidth;
+                mapViewportHeight = mapViewport?.clientHeight || window.innerHeight;
+                GRID_SIZE = Math.max(4, Math.floor(Math.min(mapViewportWidth / COLS, mapViewportHeight / ROWS))); // fit the map on to the map viewport
+                canvas.width = Math.max(1, COLS * GRID_SIZE);
+                canvas.height = Math.max(1, ROWS * GRID_SIZE);
 
-                updateSidebarDimensions();
+                applyMapZoom();
                 if(!lazy_render) render();
             }
+
+            function clampMapZoom(value) {
+                return Math.max(MIN_MAP_ZOOM, Math.min(MAX_MAP_ZOOM, value));
+            }
+
+            function applyMapZoom() {
+                const scaledWidth = Math.max(1, Math.round(canvas.width * mapZoom));
+                const scaledHeight = Math.max(1, Math.round(canvas.height * mapZoom));
+                canvas.style.width = `${scaledWidth}px`;
+                canvas.style.height = `${scaledHeight}px`;
+                if (mapStage) {
+                    mapStage.style.width = `${scaledWidth}px`;
+                    mapStage.style.height = `${scaledHeight}px`;
+                }
+                if (zoomLabel) {
+                    zoomLabel.textContent = `${Math.round(mapZoom * 100)}%`;
+                }
+            }
+
+            function setMapZoom(nextZoom, focalPoint) {
+                const oldZoom = mapZoom;
+                const clampedZoom = clampMapZoom(nextZoom);
+                if (oldZoom === clampedZoom) return;
+
+                const viewport = mapViewport;
+                const focus = focalPoint || {
+                    x: viewport ? viewport.scrollLeft + viewport.clientWidth / 2 : 0,
+                    y: viewport ? viewport.scrollTop + viewport.clientHeight / 2 : 0
+                };
+                const mapX = focus.x / oldZoom;
+                const mapY = focus.y / oldZoom;
+
+                mapZoom = clampedZoom;
+                applyMapZoom();
+
+                if (viewport) {
+                    viewport.scrollLeft = mapX * mapZoom - viewport.clientWidth / 2;
+                    viewport.scrollTop = mapY * mapZoom - viewport.clientHeight / 2;
+                }
+            }
+
+            function focusMapOnPosition(position, targetZoom = Math.max(1.5, mapZoom)) {
+                if (!mapViewport || !position) return;
+                if (targetZoom > mapZoom) {
+                    setMapZoom(targetZoom);
+                }
+
+                const centerX = (position.x + 0.5) * GRID_SIZE * mapZoom;
+                const centerY = (ROWS - position.y - 0.5) * GRID_SIZE * mapZoom;
+                mapViewport.scrollTo({
+                    left: Math.max(0, centerX - mapViewport.clientWidth / 2),
+                    top: Math.max(0, centerY - mapViewport.clientHeight / 2),
+                    behavior: 'smooth'
+                });
+            }
+
+            zoomInButton?.addEventListener('click', () => setMapZoom(mapZoom + MAP_ZOOM_STEP));
+            zoomOutButton?.addEventListener('click', () => setMapZoom(mapZoom - MAP_ZOOM_STEP));
+            zoomResetButton?.addEventListener('click', () => setMapZoom(1));
+            mapViewport?.addEventListener('wheel', event => {
+                if (!event.ctrlKey && !event.metaKey) return;
+                event.preventDefault();
+                const rect = mapViewport.getBoundingClientRect();
+                const focalPoint = {
+                    x: mapViewport.scrollLeft + event.clientX - rect.left,
+                    y: mapViewport.scrollTop + event.clientY - rect.top
+                };
+                setMapZoom(mapZoom + (event.deltaY < 0 ? MAP_ZOOM_STEP : -MAP_ZOOM_STEP), focalPoint);
+            }, { passive: false });
 
             let resource_configs = map_config.resource_configs;
 
@@ -382,15 +530,6 @@ function drawGame(hostname, port) {
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
             let terrains = Array.from({ length: ROWS }, () => Array(COLS).fill(terrainImages.unknown)); //all squares are unknown at the start
-
-            function updateSidebarDimensions() {
-                //Since final canvas dimensions are known, resize the container that holds canvas and DIV for bot-info DIVs
-                //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
-                document.getElementById("game-info-container").style.gridTemplateColumns = canvas.width + "px " + (screenWidth - canvas.width) + "px";
-
-                //Allows the bot-info container to take up as much remaining space as possible (on the right; not any space of game canvas)
-                document.getElementById("bot-info-megacontainer").style.width = screenWidth - canvas.width + "px";
-            }
 
             function drawASquare(c, r, background, image) {
                 ctx.drawImage(background, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
@@ -484,12 +623,11 @@ function drawGame(hostname, port) {
                 // Pre-create placeholder sidebars for all players currently in the game.
                 // Without this, idle players never appear because the observer only learns
                 // about a player when it receives a tick update for them.
-                fetch(`${http_type}://${hostname}:${port}/games`)
-                    .then(r => r.json())
-                    .then(games => {
-                        const game = games.find(g => g.game_id === matchGameId);
+                refreshGameStatus(matchGameId, map_config, hasObservedTick)
+                    .then(game => {
                         if (!game) return;
-                        const megacontainer = document.getElementById('bot-info-megacontainer');
+                        selectedGameInfo = game;
+                        const megacontainer = document.getElementById('player-sidebar-list');
                         while (sidebars.length < game.current_players) {
                             const idx = sidebars.length;
                             const sidebar = document.createElement('div');
@@ -513,6 +651,8 @@ function drawGame(hostname, port) {
                         switch (data.update_type) {
                             case 'kTickUpdate':
                                 console.log('tick update: ', data)
+                                hasObservedTick = true;
+                                renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
                                 if (Array.isArray(data.bot_updates)) {
                                     data.bot_updates.forEach(botUpdate => {
                                         console.log('botUpdate: ', botUpdate);
@@ -570,7 +710,7 @@ function drawGame(hostname, port) {
                         const sidebar = document.createElement('div');
                         sidebar.classList.add('sidebar');
                         sidebar.id = 'bot-sidebar-' + (playerIndex + 1);
-                        document.getElementById('bot-info-megacontainer').appendChild(sidebar);
+                        document.getElementById('player-sidebar-list').appendChild(sidebar);
                         sidebars.push(sidebar);
                     }
                 }
@@ -850,15 +990,20 @@ function drawGame(hostname, port) {
                 sidebar.appendChild(botBox);
                 for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of botMap.entries()) {
                     if (playerIndex == botPlayerIndex) { //THIS MIGHT NOT WORK
-                        const botDiv = document.createElement('div');
+                        const botDiv = document.createElement('button');
                         console.log('cargo: ', cargo);
                         botDiv.classList.add('bot-info');
+                        botDiv.type = 'button';
+                        botDiv.dataset.botId = id;
+                        botDiv.title = `Focus bot #${id}`;
+                        botDiv.setAttribute('aria-label', `Focus ${NameMaps.mapName("variantMap", variant)} bot ${id} at ${position.x}, ${position.y}`);
+                        botDiv.addEventListener('click', () => focusMapOnPosition(position));
                         const botImage = assetManager.getBotImage(variant, job, cargo) || assetManager.images.unknown;
                         const variantName = NameMaps.mapName("variantMap", variant);
                         const jobName = NameMaps.mapName("actionMap", job.action);
                         botDiv.innerHTML = `
                 <div class="bot-card-header">
-                    <img class="bot-sidebar-icon" src="${botImage.src || './assets/unknown.jpg'}" alt="${escapeHTML(variantName)}">
+                    <img class="bot-sidebar-icon" src="${botImage.src || './assets/unknown.jpg'}" alt="${escapeHTML(variantName)}" width="28" height="28">
                     <div class="bot-title-group">
                         <h4 class="bot-title">${escapeHTML(variantName)}</h4>
                         <span class="bot-id">#${id}</span>
@@ -884,6 +1029,8 @@ function drawGame(hostname, port) {
                             mineralImage.alt = mineralImage.title = itemName;
                             mineralImage.src = itemImageSrc;
                             mineralImage.classList.add('cargo-icon');
+                            mineralImage.width = 16;
+                            mineralImage.height = 16;
                             cargoContainer.appendChild(mineralImage);
 
                             let mineralAmt = document.createElement('p')
