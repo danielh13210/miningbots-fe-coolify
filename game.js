@@ -783,6 +783,34 @@ function drawGame(hostname, port) {
                     gameState[ROWS - position.y - 1][position.x] = BOT_START_IDX + playerIndex * botVariants.length + variantIdx;
                 }
             }
+
+            function energyFillClass(energyPct) {
+                if (energyPct <= 25) return 'energy-fill-low';
+                if (energyPct <= 55) return 'energy-fill-mid';
+                return 'energy-fill-high';
+            }
+
+            function createEnergyBar(currentEnergy) {
+                const maxEnergy = Math.max(Number(map_config.max_bot_energy) || 0, currentEnergy, 1);
+                const energyPct = Math.max(0, Math.min(100, (currentEnergy / maxEnergy) * 100));
+                const energyWrap = document.createElement('div');
+                energyWrap.classList.add('energy-meter');
+                energyWrap.setAttribute('title', `Energy ${currentEnergy}/${maxEnergy}`);
+                energyWrap.setAttribute('aria-label', `Energy ${currentEnergy} of ${maxEnergy}`);
+
+                const energyFill = document.createElement('div');
+                energyFill.classList.add('energy-fill', energyFillClass(energyPct));
+                energyFill.style.width = `${energyPct}%`;
+                energyWrap.appendChild(energyFill);
+
+                const energyText = document.createElement('span');
+                energyText.classList.add('energy-label');
+                energyText.textContent = `${currentEnergy}/${maxEnergy}`;
+                energyWrap.appendChild(energyText);
+
+                return energyWrap;
+            }
+
             //shows a row for each player showing each bot and their data
             async function updateUI(player_id) {
                 const playerIndex = ensurePlayer(player_id);
@@ -825,14 +853,23 @@ function drawGame(hostname, port) {
                         const botDiv = document.createElement('div');
                         console.log('cargo: ', cargo);
                         botDiv.classList.add('bot-info');
+                        const botImage = assetManager.getBotImage(variant, job, cargo) || assetManager.images.unknown;
+                        const variantName = NameMaps.mapName("variantMap", variant);
+                        const jobName = NameMaps.mapName("actionMap", job.action);
                         botDiv.innerHTML = `
-                <h4 class="bot-title"><b>${NameMaps.mapName("variantMap", variant)}</b> ${id}</h4>
-                <hr class="bot-divider">
-                <p class="bot-detail"><b>Position:</b> ${position.x}, ${position.y}</p>
-                <p class="bot-detail"><b>Energy:</b> ${current_energy}</p>
-                <p class="bot-detail"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p>
-                <hr class="bot-divider">
+                <div class="bot-card-header">
+                    <img class="bot-sidebar-icon" src="${botImage.src || './assets/unknown.jpg'}" alt="${escapeHTML(variantName)}">
+                    <div class="bot-title-group">
+                        <h4 class="bot-title">${escapeHTML(variantName)}</h4>
+                        <span class="bot-id">#${id}</span>
+                    </div>
+                </div>
+                <div class="bot-meta-row">
+                    <span>${position.x}, ${position.y}</span>
+                    <span>${escapeHTML(jobName)}</span>
+                </div>
             `;
+                        botDiv.appendChild(createEnergyBar(current_energy));
 // , ${job.status}
                         const cargoContainer = document.createElement('div');
 

@@ -200,12 +200,27 @@
   }
 
   .bot-info {
-    @apply m-0.5 min-w-28 rounded-md border border-slate-200 bg-white p-1;
+    @apply m-0.5 min-w-36 rounded-md border border-slate-200 bg-white p-1.5;
   }
 
-  .bot-info h4,
   .bot-title {
-    @apply m-0.5 p-0 text-[11px] text-ink;
+    @apply m-0 p-0 text-[11px] font-bold leading-tight text-ink;
+  }
+
+  .bot-card-header {
+    @apply flex items-center gap-1.5;
+  }
+
+  .bot-sidebar-icon {
+    @apply h-7 w-7 shrink-0 rounded border border-slate-200 bg-slate-50 object-contain p-0.5;
+  }
+
+  .bot-title-group {
+    @apply min-w-0 flex-1;
+  }
+
+  .bot-id {
+    @apply block truncate text-[10px] leading-tight text-slate-500;
   }
 
   .bot-info p,
@@ -213,16 +228,44 @@
     @apply my-0.5 p-0 text-[11px] text-slate-700;
   }
 
+  .bot-meta-row {
+    @apply mt-1 flex justify-between gap-2 whitespace-nowrap text-[10px] text-slate-600;
+  }
+
+  .energy-meter {
+    @apply relative mt-1.5 h-4 overflow-hidden rounded border border-slate-300 bg-slate-100;
+  }
+
+  .energy-fill {
+    @apply h-full rounded-[inherit] transition-[width] duration-150;
+  }
+
+  .energy-fill-high {
+    @apply bg-green-500;
+  }
+
+  .energy-fill-mid {
+    @apply bg-amber-400;
+  }
+
+  .energy-fill-low {
+    @apply bg-red-500;
+  }
+
+  .energy-label {
+    @apply absolute inset-0 flex items-center justify-center text-[10px] font-bold leading-none text-slate-900;
+  }
+
   .bot-divider {
     @apply my-0.5;
   }
 
   .cargo-grid {
-    @apply grid grid-cols-[auto_auto] gap-[0.05vw] p-[0.1vw];
+    @apply mt-1 grid grid-cols-[auto_auto] items-center gap-x-1 gap-y-0.5 p-0 text-[10px] text-slate-700;
   }
 
   .cargo-icon {
-    @apply h-[1vw] w-[1vw];
+    @apply h-4 w-4 object-contain;
   }
 
   #loadingbox {
