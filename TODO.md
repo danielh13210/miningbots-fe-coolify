@@ -41,14 +41,14 @@ When a tile has a resource with `highestId` pointing to an intermediate (id >= 6
 
 ## Priority 2: Bugs that cause crashes or visual corruption
 
-### 2.1 `drawABot` crashes when terrain is undefined
+### ~~2.1 `drawABot` crashes when terrain is undefined~~ DONE
 `drawABot(c, r, colour, image, terrain)` calls `ctx.drawImage(terrain, ...)` but `terrain` comes from `terrains[row][col]`, which is `undefined` for any cell the observer hasn't received a `LandUpdate` for yet. `ctx.drawImage(undefined)` throws a TypeError. The old code didn't draw terrain under bots so this is a regression.
 
 **Fix**: guard with `if (terrain)` before drawing, or fall back to the unknown terrain image.
 
 **Files**: `game.js` (`drawABot`, line ~407)
 
-### 2.2 O(n) botMap scan per cell per frame
+### ~~2.2 O(n) botMap scan per cell per frame~~ DONE
 ```js
 let botEntry = Array.from(botMap.values()).find(([pos]) => pos.x === col && ROWS - pos.y - 1 === row);
 ```
@@ -61,10 +61,8 @@ Calling it twice (e.g. on reconnect) appends duplicate entries to `resources`, `
 
 **Files**: `scripts/ui/asset_manager.js`
 
-### 2.4 Sidebar pre-creation race with ensurePlayer
-The `fetch(/games)` pre-creation of sidebars and the websocket `ensurePlayer` path both push to the shared `sidebars` array without coordination. If a tick arrives before the fetch resolves, duplicates or index mismatches can occur.
-
-**Files**: `game.js` (ws.onopen fetch block, `ensurePlayer`)
+### ~~2.4 Sidebar pre-creation race with ensurePlayer~~ NOT A BUG
+JS is single-threaded; fetch `.then()` and websocket `onmessage` can't interleave. Both paths check `sidebars.length` before creating, so no duplicates occur.
 
 ## Priority 3: Missing assets
 

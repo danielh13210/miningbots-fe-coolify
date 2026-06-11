@@ -403,7 +403,9 @@ function drawGame(hostname, port) {
             //this exists because the bots have a background colour that indicates the player they are attached to, instead of the terrain
             //can remove this if the background is also changed to an image
             function drawABot(c, r, colour, image, terrain) {
-                ctx.drawImage(terrain, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
+                if (terrain) {
+                    ctx.drawImage(terrain, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
+                }
                 ctx.fillStyle = colour;
                 ctx.fillRect(c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
                 ctx.drawImage(image, c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
@@ -411,6 +413,11 @@ function drawGame(hostname, port) {
 
             function render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const botByPos = new Map();
+                for (const entry of botMap.values()) {
+                    const pos = entry[0];
+                    botByPos.set(pos.x + ',' + (ROWS - pos.y - 1), entry);
+                }
                 for (let row = 0; row < ROWS; row++) {
                     for (let col = 0; col < COLS; col++) {
                         const element = gameState[row][col];
@@ -469,7 +476,7 @@ function drawGame(hostname, port) {
                                     let variant = botVariants[variantIdx] || 'kMiningBot';
                                     let color = colors[playerIndex];
                                     
-                                    let botEntry = Array.from(botMap.values()).find(([pos]) => pos.x === col && ROWS - pos.y - 1 === row);
+                                    let botEntry = botByPos.get(col + ',' + row);
                                     let botJob = botEntry ? botEntry[3] : null;
                                     let botCargo = botEntry ? botEntry[4] : null;
                                     let img = assetManager.getBotImage(variant, botJob, botCargo);
