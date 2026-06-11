@@ -431,7 +431,7 @@ function drawGame(hostname, port) {
                                 drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
                                 break;
                             case elements.resource:
-                                ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                                drawASquare(col, row, terrain, images.mixed_ore);
                                 break;
                             default:
                                 if(element < BOT_START_IDX){
@@ -439,7 +439,7 @@ function drawGame(hostname, port) {
                                     if(image && image.complete && image.naturalHeight > 0){
                                         drawASquare(col, row, terrain, image);
                                     } else {
-                                        ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                                        drawASquare(col, row, terrain, images.mixed_ore);
                                     }
                                 } else {
                                     let botOffset = element - BOT_START_IDX;
