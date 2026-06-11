@@ -2,9 +2,9 @@ export class AssetManager {
     constructor() {
         this.images = {};
         this.resources = {};
-        this.intermediates = {};
+        this.resourceById = {};
         this.elements = {};
-        this.botVariants = ['kMiningBot', 'kFactoryBot', 'kScoutBot', 'kHaulerBot'];
+        this.botVariants = ['kMiningBot', 'kFactoryBot', 'kScoutBot', 'kHaulerBot', 'kAdvancedMinerBot', 'kDisruptorBot'];
         this.BOT_START_IDX = 0;
         
         // Define base elements
@@ -32,75 +32,56 @@ export class AssetManager {
         this.images.kHaulerBotEmpty.src = "assets/Bot_Hauler_Empty.png";
         this.images.kHaulerBotFull = new Image();
         this.images.kHaulerBotFull.src = "assets/Bot_Hauler_Full.png";
+        this.images.kAdvancedMinerBot = new Image();
+        this.images.kAdvancedMinerBot.src = "assets/Bot_Mining.png";
+        this.images.kDisruptorBot = new Image();
+        this.images.kDisruptorBot.src = "assets/Bot_Scout.png";
         this.images.mixed_ore = new Image();
         this.images.mixed_ore.src = "assets/Resource_Mixed_Ore.png";
         this.images.unknown = new Image();
     }
 
     initializeDynamicAssets(mapConfig) {
+        this.resources = {};
+        this.resourceById = {};
+        this.elements = { unknown: 4, traversable: 5, resource: 6 };
+
         const resource_element_start_idx = Math.max(...Object.values(this.elements)) + 1;
         const resource_configs = mapConfig.resource_configs || [];
-        
-        resource_configs.forEach(resource => {
-            let cleanName = resource.name.toLowerCase().replace('resource_', '').replace(/[\s_]+/g, '_');
-            this.resources[Object.keys(this.resources).length] = cleanName;
-            this.elements[cleanName] = resource_element_start_idx + Object.keys(this.resources).length - 1;
-            this.images[cleanName] = new Image();
-            // Prefer Resource_Name.png (new assets), fall back to name.png
-            const newAssetSrc = 'assets/Resource_' + resource.name + '.png';
-            const fallbackSrc = 'assets/' + cleanName + '.png';
-            this.images[cleanName].onerror = () => { this.images[cleanName].onerror = null; this.images[cleanName].src = fallbackSrc; };
-            this.images[cleanName].src = newAssetSrc;
-        });
 
-        const intermediate_configs = mapConfig.intermediate_configs || [
-            { name: 'Circuit', id: 0 },
-            { name: 'Composite', id: 1 },
-            { name: 'Reactor_Core', id: 2 },
-            { name: 'Steel', id: 3 },
-            { name: 'Rocket_Part', id: 4 }
-        ];
-        
-        const intermediate_element_start_idx = Math.max(...Object.values(this.elements)) + 1;
-        intermediate_configs.forEach(intermediate => {
-            let cleanName = intermediate.name.toLowerCase().replace('intermediate_', '').replace(/[\s_]+/g, '_');
-            this.intermediates[Object.keys(this.intermediates).length] = cleanName;
-            this.elements[cleanName] = intermediate_element_start_idx + Object.keys(this.intermediates).length - 1;
+        resource_configs.forEach((resource, idx) => {
+            let cleanName = resource.name.toLowerCase().replace(/[\s]+/g, '_');
+            this.resources[idx] = cleanName;
+            this.resourceById[idx] = resource;
+            this.elements[cleanName] = resource_element_start_idx + idx;
             this.images[cleanName] = new Image();
-            this.images[cleanName].src = 'assets/' + cleanName + '.png';
+
+            let isIntermediate = resource.rarity === 0;
+            if (isIntermediate) {
+                let assetName = 'assets/Intermediate_' + resource.name.replace(/[\s]+/g, '_') + '.png';
+                this.images[cleanName].src = assetName;
+            } else {
+                let newAssetSrc = 'assets/Resource_' + resource.name.replace(/[\s]+/g, '_') + '.png';
+                this.images[cleanName].src = newAssetSrc;
+            }
         });
 
         this.BOT_START_IDX = Math.max(...Object.values(this.elements)) + 1;
     }
 
-    // Resolves clean name and image source path for cargo items
-    getItemInfo(item, mapConfig) {
-        let itemName = "unknown";
-        let itemImageSrc = "./assets/Resource_Mixed_Ore.png";
-        let isIntermediate = item.type === 'kIntermediate' || item.type === 1;
-        
-        if (isIntermediate || item.id >= (mapConfig.resource_configs || []).length) {
-            let idx = isIntermediate ? item.id : item.id - (mapConfig.resource_configs || []).length;
-            let cleanName = this.intermediates[idx];
-            if (cleanName) {
-                itemName = cleanName;
-                itemImageSrc = "./assets/" + cleanName + ".png";
-            }
-        } else {
-            let cleanName = this.resources[item.id];
-            if (cleanName) {
-                itemName = cleanName;
-                itemImageSrc = "./assets/" + cleanName + ".png";
-            }
+    getItemInfo(item) {
+        let cleanName = this.resources[item.id];
+        if (cleanName && this.images[cleanName]) {
+            return { itemName: cleanName, itemImageSrc: this.images[cleanName].src };
         }
-        return { itemName, itemImageSrc };
+        return { itemName: "unknown", itemImageSrc: "./assets/Resource_Mixed_Ore.png" };
     }
 
     // Resolves state-aware bot image depending on current action or cargo
     getBotImage(variant, botJob, botCargo) {
         let img = this.images[variant];
         if (variant === 'kFactoryBot') {
-            if (botJob && botJob.action === 'kBuildBot') {
+            if (botJob && (botJob.action === 'kBuildBot' || botJob.action === 'kCraft')) {
                 img = this.images.kFactoryBotActive || this.images.kFactoryBot;
             } else {
                 img = this.images.kFactoryBotIdle || this.images.kFactoryBot;

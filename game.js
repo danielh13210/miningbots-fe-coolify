@@ -368,7 +368,6 @@ function drawGame(hostname, port) {
 
             const elements = assetManager.elements;
             const resources = assetManager.resources;
-            const intermediates = assetManager.intermediates;
             const botVariants = assetManager.botVariants;
             const BOT_START_IDX = assetManager.BOT_START_IDX;
 
@@ -809,9 +808,9 @@ function drawGame(hostname, port) {
                                 gameState[ROWS - y - 1][x] = elements.resource;
                                 break;
                         }*/
-                        // we have to use map_config because the resources is shadowed here
-                        if(map_config.resource_configs[highestId] !== undefined){
-                            gameState[ROWS - y - 1][x] = elements[map_config.resource_configs[highestId].name.toLowerCase()];
+                        let cleanName = assetManager.resources[highestId];
+                        if(cleanName !== undefined && elements[cleanName] !== undefined){
+                            gameState[ROWS - y - 1][x] = elements[cleanName];
                         } else {
                             gameState[ROWS - y - 1][x] = elements.resource;
                         }
@@ -892,7 +891,7 @@ function drawGame(hostname, port) {
 
                         // Add each cargo item as a new paragraph
                         cargo.forEach(item => {
-                            let { itemName, itemImageSrc } = assetManager.getItemInfo(item, map_config);
+                            let { itemName, itemImageSrc } = assetManager.getItemInfo(item);
                             
                             let mineralImage = document.createElement('img')
                             mineralImage.alt = mineralImage.title = itemName;
