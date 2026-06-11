@@ -33,9 +33,9 @@ export class AssetManager {
         this.images.kHaulerBotFull = new Image();
         this.images.kHaulerBotFull.src = "assets/Bot_Hauler_Full.png";
         this.images.kAdvancedMinerBot = new Image();
-        this.images.kAdvancedMinerBot.src = "assets/Bot_Mining.png";
+        this.images.kAdvancedMinerBot.src = "assets/Bot_Advanced_Miner.png";
         this.images.kDisruptorBot = new Image();
-        this.images.kDisruptorBot.src = "assets/Bot_Scout.png";
+        this.images.kDisruptorBot.src = "assets/Bot_Disruptor.png";
         this.images.mixed_ore = new Image();
         this.images.mixed_ore.src = "assets/Resource_Mixed_Ore.png";
         this.images.unknown = new Image();
