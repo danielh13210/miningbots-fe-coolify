@@ -619,6 +619,47 @@ function drawGame(hostname, port) {
                 drawASquare(col, row, terrain, image, resourceOpacity(row, col, cell.primary));
             }
 
+            function drawDisruptEffects(now) {
+                const duration = 900;
+                let active = false;
+                for (let i = disruptEffects.length - 1; i >= 0; i--) {
+                    const effect = disruptEffects[i];
+                    const progress = Math.min(1, Math.max(0, (now - effect.startedAt) / duration));
+                    if (progress >= 1) {
+                        disruptEffects.splice(i, 1);
+                        continue;
+                    }
+
+                    active = true;
+                    const alpha = 1 - progress;
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    const centerX = (effect.position.x + 0.5) * GRID_SIZE;
+                    const centerY = (ROWS - effect.position.y - 0.5) * GRID_SIZE;
+                    const radiusPx = (effect.radius + 0.5) * GRID_SIZE;
+
+                    ctx.save();
+                    ctx.fillStyle = `rgba(236, 72, 153, ${0.18 * alpha})`;
+                    ctx.strokeStyle = `rgba(236, 72, 153, ${0.85 * alpha})`;
+                    ctx.lineWidth = Math.max(2, GRID_SIZE * 0.08);
+
+                    for (let dy = -effect.radius; dy <= effect.radius; dy++) {
+                        for (let dx = -effect.radius; dx <= effect.radius; dx++) {
+                            if ((dx * dx + dy * dy) > (effect.radius * effect.radius)) continue;
+                            const x = effect.position.x + dx;
+                            const y = effect.position.y + dy;
+                            if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+                            ctx.fillRect(x * GRID_SIZE, (ROWS - y - 1) * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                        }
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radiusPx * eased, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                return active;
+            }
+
             function render(now = performance.now()) {
                 if (animationFrameId !== null) {
                     cancelAnimationFrame(animationFrameId);
@@ -671,6 +712,10 @@ function drawGame(hostname, port) {
                     }
                 }
 
+                if (drawDisruptEffects(now)) {
+                    isAnimating = true;
+                }
+
                 for (const entry of botMap.values()) {
                     const display = displayPositionForBot(entry, now);
                     const [position, variant, _currentEnergy, job, cargo, playerIndex] = entry;
@@ -693,6 +738,7 @@ function drawGame(hostname, port) {
             // initialized first to avoid a temporal-dead-zone ReferenceError.
             const botMap = new Map();
             const jobMap = new Map();
+            const disruptEffects = [];
             const players = {};
             const playerNames = {};
             render();
@@ -717,7 +763,13 @@ function drawGame(hostname, port) {
                             const sidebar = document.createElement('div');
                             sidebar.classList.add('sidebar');
                             sidebar.id = 'bot-sidebar-' + (idx + 1);
-                            sidebar.innerHTML = `<div class="player-header"><h4>Player ${idx + 1}</h4><span>Waiting for updates...</span></div>`;
+                            sidebar.innerHTML = `
+                                <div class="player-summary">
+                                    <div class="player-header">
+                                        <h4>Player ${idx + 1}</h4>
+                                        <span>Waiting for updates...</span>
+                                    </div>
+                                </div>`;
                             megacontainer.appendChild(sidebar);
                             sidebars.push(sidebar);
                         }
@@ -822,6 +874,10 @@ function drawGame(hostname, port) {
                     y: previousPosition.y + (position.y - previousPosition.y) * eased,
                     animating: progress < 1
                 };
+            }
+
+            function variantConfig(variant) {
+                return (map_config.variant_configs || []).find(item => item.variant === variant) || null;
             }
 
             function mapCellFromEvent(event) {
@@ -997,6 +1053,9 @@ function drawGame(hostname, port) {
                 const progress = bestWinProgress(playerIndex);
                 const progressBox = document.createElement('div');
                 progressBox.classList.add('win-progress');
+                progressBox.title = progress.total > 0
+                    ? `Win progress ${progress.current}/${progress.total}`
+                    : 'No win condition configured';
 
                 const heading = document.createElement('div');
                 heading.classList.add('win-progress-heading');
@@ -1004,10 +1063,6 @@ function drawGame(hostname, port) {
                 const title = document.createElement('span');
                 title.textContent = 'Win';
                 heading.appendChild(title);
-
-                const percent = document.createElement('span');
-                percent.textContent = `${progress.current}/${progress.total || '-'}`;
-                heading.appendChild(percent);
                 progressBox.appendChild(heading);
 
                 const bar = document.createElement('div');
@@ -1078,7 +1133,7 @@ function drawGame(hostname, port) {
                 } else {
                     job = { action: 'kNoAction', status: 'kNotStarted' };
                 }
-                botMap.set(id, [position, variant, current_energy, job, cargo || [], playerIndex, previousPosition, now]);
+                botMap.set(id, [position, variant, current_energy, job, cargo || [], playerIndex, previousPosition, now, current_job_id]);
                 var newRow = ROWS - position.y - 1;
                 var newCol = position.x;
                 let variantIdx = botVariants.indexOf(variant);
@@ -1092,6 +1147,22 @@ function drawGame(hostname, port) {
                 const { id, action, status } = data;
                 var job = { action: action, status: status }
                 jobMap.set(id, job);
+                if (action === 'kExplode' && status === 'kCompleted') {
+                    for (const entry of botMap.values()) {
+                        const [position, variant, _energy, _job, _cargo, playerIndex] = entry;
+                        const currentJobId = entry[8];
+                        if (currentJobId !== id || variant !== 'kDisruptorBot') continue;
+
+                        disruptEffects.push({
+                            position: { ...position },
+                            radius: Number(variantConfig(variant)?.blast_radius || 0),
+                            playerIndex,
+                            startedAt: performance.now()
+                        });
+                        render();
+                        break;
+                    }
+                }
             }
 
             //Updates the state of a tile on the map
@@ -1179,19 +1250,23 @@ function drawGame(hostname, port) {
             function createCargoBar(cargo, variant) {
                 const currentLoad = cargoLoad(cargo);
                 const capacity = variantCapacity(variant);
+                const remainingCapacity = capacity > 0 ? Math.max(0, capacity - currentLoad) : 0;
+                const remainingPct = capacity > 0
+                    ? Math.max(0, Math.min(100, (remainingCapacity / capacity) * 100))
+                    : 0;
                 const cargoWrap = document.createElement('div');
                 cargoWrap.classList.add('cargo-meter');
-                cargoWrap.setAttribute('title', capacity > 0 ? `Cargo ${currentLoad}/${capacity}` : `Cargo ${currentLoad}`);
-                cargoWrap.setAttribute('aria-label', capacity > 0 ? `Cargo ${currentLoad} of ${capacity}` : `Cargo ${currentLoad}`);
+                cargoWrap.setAttribute('title', capacity > 0 ? `Capacity ${remainingCapacity}/${capacity} free; cargo ${currentLoad}/${capacity}` : `Cargo ${currentLoad}`);
+                cargoWrap.setAttribute('aria-label', capacity > 0 ? `Capacity ${remainingCapacity} of ${capacity} free` : `Cargo ${currentLoad}`);
 
                 const fill = document.createElement('div');
                 fill.classList.add('cargo-fill');
-                fill.style.width = capacity > 0 ? `${Math.max(0, Math.min(100, (currentLoad / capacity) * 100))}%` : '0%';
+                fill.style.width = `${remainingPct}%`;
                 cargoWrap.appendChild(fill);
 
                 const label = document.createElement('span');
                 label.classList.add('cargo-label');
-                label.textContent = capacity > 0 ? `${currentLoad}/${capacity}` : `${currentLoad}`;
+                label.textContent = capacity > 0 ? `${remainingCapacity}/${capacity} free` : `${currentLoad}`;
                 cargoWrap.appendChild(label);
 
                 return cargoWrap;
@@ -1245,6 +1320,9 @@ function drawGame(hostname, port) {
 
                 sidebar.innerHTML = ''; // Clear the existing sidebar content
 
+                const playerSummary = document.createElement('div');
+                playerSummary.classList.add('player-summary');
+
                 const header = document.createElement('div');
                 header.classList.add('player-header');
                 header.style.color = color;
@@ -1252,9 +1330,10 @@ function drawGame(hostname, port) {
                 const playerName = document.createElement('h4');
                 playerName.textContent = getPlayerLabel(player_id);
                 header.appendChild(playerName);
-                sidebar.appendChild(header);
 
-                appendWinProgress(sidebar, playerIndex);
+                playerSummary.appendChild(header);
+                appendWinProgress(playerSummary, playerIndex);
+                sidebar.appendChild(playerSummary);
 
                 const botBox = document.createElement('div');
                 botBox.classList.add('bot-box');

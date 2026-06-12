@@ -52,61 +52,63 @@
             </ul>
           </div>
           <div class="app-nav-actions">
-            <a class="icon-button" role="button" title="Enter Competition Mode" onclick="CompetitionManager.toggleFullscreen()" id="fullscreen-button" helpon-available><svgfile id="fullscreen-icon" aria-hidden="true" src="/assets/ui/fullscreen.svg"></svgfile></a>
-            <a class="icon-button" role="button" title="Settings" onclick="SettingsManager.open_popup();" id="settings-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/settings.svg"></svgfile></a>
+            <a class="icon-button" role="button" title="Enter Competition Mode" onclick="CompetitionManager.toggleFullscreen()" id="fullscreen-button" helpon-available><span id="fullscreen-icon" class="fa-icon fa-expand" aria-hidden="true"></span></a>
+            <a class="icon-button" role="button" title="Settings" onclick="SettingsManager.open_popup();" id="settings-button" helpon-available><span class="fa-icon fa-gear" aria-hidden="true"></span></a>
           </div>
           <script type="module">
-            import SVGImporter from "./scripts/utilities/svgimporter.js";
             import KeyboardUtilities from "./scripts/utilities/keyboard_utilities.js";
             document.addEventListener('fullscreenchange', (event) => {
               let title,icon;
               if(document.fullscreenElement){
                 title="Exit Competition Mode";
-                icon="exit_fullscreen";
+                icon="fa-compress";
               } else {
                 title="Enter Competition Mode";
-                icon="fullscreen";
+                icon="fa-expand";
               }
               document.getElementById("fullscreen-button").title=`${title} (${KeyboardUtilities.joinMnemonic(false,'F')})`; //reappend mnemonic so it doesn't disappear when fullscreen changes
-              let svgicon=document.createElement("svgfile");
-              svgicon.ariaHidden=true;
-              svgicon.id="fullscreen-icon";
-              svgicon.setAttribute("src",`/assets/ui/${icon}.svg`);
-              document.getElementById("fullscreen-icon").replaceWith(svgicon);
-              SVGImporter.reimport();
+              const fullscreenIcon = document.getElementById("fullscreen-icon");
+              fullscreenIcon.classList.toggle("fa-expand", icon === "fa-expand");
+              fullscreenIcon.classList.toggle("fa-compress", icon === "fa-compress");
             });
           </script>
         </nav>
 
         <section id="game-status-panel" class="game-status-panel competition-disabled" aria-live="polite">
-          <div class="game-status-item">
-            <span class="game-status-label">Server</span>
-            <span class="game-status-value" id="status-server">-</span>
+          <div class="game-status-row game-status-row-primary">
+            <div class="game-status-item">
+              <span class="game-status-label">Server</span>
+              <span class="game-status-value" id="status-server">-</span>
+            </div>
+            <div class="game-status-item">
+              <span class="game-status-label">Game</span>
+              <span class="game-status-value" id="status-game">-</span>
+            </div>
+            <div class="game-status-item game-status-zoom">
+              <span class="game-status-label">Zoom</span>
+              <div class="map-controls" aria-label="Map controls">
+                <button class="map-control-button" type="button" id="zoom-out-button" title="Zoom out">-</button>
+                <span class="map-zoom-label" id="map-zoom-label">100%</span>
+                <button class="map-control-button" type="button" id="zoom-in-button" title="Zoom in">+</button>
+                <button class="map-control-button" type="button" id="zoom-reset-button" title="Reset zoom">1:1</button>
+              </div>
+            </div>
           </div>
-          <div class="game-status-item">
-            <span class="game-status-label">Game</span>
-            <span class="game-status-value" id="status-game">-</span>
-          </div>
-          <div class="game-status-item">
-            <span class="game-status-label">Status</span>
-            <span class="game-status-value status-pill" id="status-state">-</span>
-          </div>
-          <div class="game-status-item">
-            <span class="game-status-label">Players</span>
-            <span class="game-status-value" id="status-players">-</span>
-          </div>
-          <div class="game-status-item">
-            <span class="game-status-label">Map</span>
-            <span class="game-status-value" id="status-map">-</span>
+          <div class="game-status-row game-status-row-secondary">
+            <div class="game-status-item">
+              <span class="game-status-label">Status</span>
+              <span class="game-status-value status-pill" id="status-state">-</span>
+            </div>
+            <div class="game-status-item">
+              <span class="game-status-label">Map</span>
+              <span class="game-status-value" id="status-map">-</span>
+            </div>
+            <div class="game-status-item">
+              <span class="game-status-label">Players</span>
+              <span class="game-status-value" id="status-players">-</span>
+            </div>
           </div>
         </section>
-
-        <div class="map-controls" aria-label="Map controls">
-          <button class="map-control-button" type="button" id="zoom-out-button" title="Zoom out">-</button>
-          <span class="map-zoom-label" id="map-zoom-label">100%</span>
-          <button class="map-control-button" type="button" id="zoom-in-button" title="Zoom in">+</button>
-          <button class="map-control-button" type="button" id="zoom-reset-button" title="Reset zoom">1:1</button>
-        </div>
       </div>
       <div class="player-sidebar-list" id="player-sidebar-list">
       <!--For the purpose of allowing >2 players to be shown, probably best to also dynamically populate this-->
