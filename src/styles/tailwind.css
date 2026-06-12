@@ -157,7 +157,7 @@
   }
 
   .game-status-item {
-    @apply flex min-h-10 items-center justify-between gap-2 bg-white px-2.5 py-1.5;
+    @apply flex min-h-8 items-center justify-between gap-2 bg-white px-2.5 py-1;
   }
 
   .game-status-label {
@@ -206,15 +206,15 @@
   }
 
   .sidebar {
-    @apply block w-auto overflow-x-hidden overflow-y-visible border-b border-slate-300 bg-panel p-1.5 shadow-[-2px_0_5px_rgba(15,23,42,0.08)];
+    @apply block w-auto overflow-x-hidden overflow-y-visible border-b border-slate-300 bg-panel p-1 shadow-[-2px_0_5px_rgba(15,23,42,0.08)];
   }
 
   .player-header {
-    @apply mb-1.5 flex items-baseline gap-1.5 border-l-4 border-current pl-1.5;
+    @apply mb-1 flex items-baseline gap-1.5 border-l-4 border-current pl-1.5;
   }
 
   .player-header h4 {
-    @apply m-0 text-sm font-bold leading-tight;
+    @apply m-0 truncate text-xs font-bold leading-tight;
   }
 
   .player-header span {
@@ -222,15 +222,15 @@
   }
 
   .win-progress {
-    @apply mb-1.5 rounded-md border border-slate-200 bg-white p-1.5;
+    @apply mb-1 rounded border border-slate-200 bg-white p-1;
   }
 
   .win-progress-heading {
-    @apply flex justify-between gap-2 text-[11px] font-bold text-slate-700;
+    @apply flex justify-between gap-2 text-[10px] font-bold text-slate-700;
   }
 
   .win-progress-bar {
-    @apply mt-1 h-[7px] overflow-hidden rounded-full bg-slate-200;
+    @apply mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200;
   }
 
   .win-progress-fill {
@@ -238,11 +238,11 @@
   }
 
   .win-quota-grid {
-    @apply mt-1.5 grid grid-cols-[repeat(auto-fit,minmax(86px,1fr))] gap-x-2 gap-y-1;
+    @apply mt-1 grid grid-cols-[repeat(auto-fit,minmax(3.75rem,1fr))] gap-1;
   }
 
   .win-quota-row {
-    @apply flex justify-between gap-1.5 whitespace-nowrap text-[11px] text-slate-600;
+    @apply flex items-center justify-between gap-1 rounded border border-slate-200 bg-slate-50 px-1 py-0.5 text-[10px] leading-none text-slate-600;
   }
 
   .win-quota-row.complete {
@@ -250,23 +250,23 @@
   }
 
   .bot-box {
-    @apply grid w-full grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-1;
+    @apply grid w-full grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] items-start gap-1;
   }
 
   .bot-info {
-    @apply m-0 min-w-0 rounded-md border border-slate-200 bg-white p-1.5 text-left transition-colors hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500;
+    @apply m-0 min-w-0 self-start rounded border border-slate-200 bg-white p-1 text-left transition-colors hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500;
   }
 
   .bot-title {
-    @apply m-0 p-0 text-[11px] font-bold leading-tight text-ink;
+    @apply m-0 truncate p-0 text-[10px] font-bold leading-tight text-ink;
   }
 
   .bot-card-header {
-    @apply flex items-center gap-1.5;
+    @apply flex items-center gap-1;
   }
 
   .bot-sidebar-icon {
-    @apply h-7 w-7 shrink-0 rounded border border-slate-200 bg-slate-50 object-contain p-0.5;
+    @apply h-6 w-6 shrink-0 rounded border border-slate-200 bg-slate-50 object-contain p-0.5;
   }
 
   .bot-title-group {
@@ -283,11 +283,11 @@
   }
 
   .bot-meta-row {
-    @apply mt-1 flex justify-between gap-2 whitespace-nowrap text-[10px] text-slate-600;
+    @apply mt-0.5 flex justify-between gap-1 whitespace-nowrap text-[9px] text-slate-600;
   }
 
   .energy-meter {
-    @apply relative mt-1.5 h-4 overflow-hidden rounded border border-slate-300 bg-slate-100;
+    @apply relative mt-1 h-2.5 overflow-hidden rounded border border-slate-300 bg-slate-100;
   }
 
   .energy-fill {
@@ -307,7 +307,7 @@
   }
 
   .energy-label {
-    @apply absolute inset-0 flex items-center justify-center text-[10px] font-bold leading-none text-slate-900;
+    @apply absolute inset-0 flex items-center justify-center text-[8px] font-bold leading-none text-slate-900;
   }
 
   .bot-divider {
@@ -315,11 +315,31 @@
   }
 
   .cargo-grid {
-    @apply mt-1 grid grid-cols-[auto_auto] items-center gap-x-1 gap-y-0.5 p-0 text-[10px] text-slate-700;
+    @apply mt-1 flex flex-wrap items-center gap-0.5 p-0 text-[9px] text-slate-700;
+  }
+
+  .cargo-chip {
+    @apply inline-flex max-w-full items-center gap-0.5 rounded border border-slate-200 bg-slate-50 px-1 py-0.5 leading-none;
+  }
+
+  .cargo-empty {
+    @apply text-[9px] italic leading-none text-slate-400;
   }
 
   .cargo-icon {
-    @apply h-4 w-4 shrink-0 object-contain;
+    @apply h-3.5 w-3.5 shrink-0 object-contain;
+  }
+
+  .cargo-meter {
+    @apply relative mt-1 h-2.5 overflow-hidden rounded border border-slate-300 bg-slate-100;
+  }
+
+  .cargo-fill {
+    @apply h-full rounded-[inherit] bg-sky-500 transition-[width] duration-150;
+  }
+
+  .cargo-label {
+    @apply absolute inset-0 flex items-center justify-center text-[8px] font-bold leading-none text-slate-900;
   }
 
   .map-pane {
@@ -336,7 +356,7 @@
 
   #gameCanvas {
     @apply block;
-    image-rendering: pixelated;
+    image-rendering: auto;
   }
 
   .map-controls {

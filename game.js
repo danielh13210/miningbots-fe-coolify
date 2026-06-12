@@ -407,9 +407,11 @@ function drawGame(hostname, port) {
             var mapViewportWidth = mapViewport?.clientWidth || window.innerWidth;
             var mapViewportHeight = mapViewport?.clientHeight || window.innerHeight;
             var mapZoom = 1;
+            var animationFrameId = null;
             const MIN_MAP_ZOOM = 0.5;
             const MAX_MAP_ZOOM = 4;
             const MAP_ZOOM_STEP = 0.25;
+            const MOVEMENT_ANIMATION_MS = 420;
             // map dimensions
             const COLS = map_config.max_x;
             const ROWS = map_config.max_y;
@@ -432,9 +434,6 @@ function drawGame(hostname, port) {
                 mapViewportWidth = mapViewport?.clientWidth || window.innerWidth;
                 mapViewportHeight = mapViewport?.clientHeight || window.innerHeight;
                 GRID_SIZE = Math.max(4, Math.floor(Math.min(mapViewportWidth / COLS, mapViewportHeight / ROWS))); // fit the map on to the map viewport
-                canvas.width = Math.max(1, COLS * GRID_SIZE);
-                canvas.height = Math.max(1, ROWS * GRID_SIZE);
-
                 applyMapZoom();
                 if(!lazy_render) render();
             }
@@ -444,10 +443,16 @@ function drawGame(hostname, port) {
             }
 
             function applyMapZoom() {
-                const scaledWidth = Math.max(1, Math.round(canvas.width * mapZoom));
-                const scaledHeight = Math.max(1, Math.round(canvas.height * mapZoom));
+                const pixelRatio = window.devicePixelRatio || 1;
+                const scaledWidth = Math.max(1, Math.round(COLS * GRID_SIZE * mapZoom));
+                const scaledHeight = Math.max(1, Math.round(ROWS * GRID_SIZE * mapZoom));
+                canvas.width = Math.max(1, Math.round(scaledWidth * pixelRatio));
+                canvas.height = Math.max(1, Math.round(scaledHeight * pixelRatio));
                 canvas.style.width = `${scaledWidth}px`;
                 canvas.style.height = `${scaledHeight}px`;
+                ctx.setTransform(pixelRatio * mapZoom, 0, 0, pixelRatio * mapZoom, 0, 0);
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 if (mapStage) {
                     mapStage.style.width = `${scaledWidth}px`;
                     mapStage.style.height = `${scaledHeight}px`;
@@ -472,6 +477,7 @@ function drawGame(hostname, port) {
 
                 mapZoom = clampedZoom;
                 applyMapZoom();
+                render();
 
                 if (viewport) {
                     viewport.scrollLeft = mapX * mapZoom - viewport.clientWidth / 2;
@@ -538,68 +544,77 @@ function drawGame(hostname, port) {
                 }
             }
 
-            //this exists because the bots have a background colour that indicates the player they are attached to, instead of the terrain
-            //can remove this if the background is also changed to an image
-            function drawABot(c, r, colour, image, terrain) {
-                if (terrain) {
-                    ctx.drawImage(terrain, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
-                }
+            function drawABot(c, r, colour, image) {
                 ctx.fillStyle = colour;
                 ctx.fillRect(c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
-                ctx.drawImage(image, c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                ctx.drawImage(image || images.unknown, c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
             }
 
-            function render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                const botByPos = new Map();
-                for (const entry of botMap.values()) {
-                    const pos = entry[0];
-                    botByPos.set(pos.x + ',' + (ROWS - pos.y - 1), entry);
+            function render(now = performance.now()) {
+                if (animationFrameId !== null) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
                 }
+                let isAnimating = false;
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+
+                function drawTerrainCell(col, row, element, terrain) {
+                    if (element >= BOT_START_IDX) {
+                        drawASquare(col, row, terrain);
+                        return;
+                    }
+
+                    switch (element) {
+                        case elements.unknown:
+                            ctx.fillStyle = '#1a3320';
+                            ctx.fillRect(col * GRID_SIZE - borderWidth, row * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
+                            break;
+                        case elements.traversable:
+                            drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
+                            break;
+                        case elements.resource:
+                            drawASquare(col, row, terrain, images.mixed_ore);
+                            break;
+                        default: {
+                            let image = assetManager.getElementImage(element);
+                            if(image && image.complete && image.naturalHeight > 0){
+                                drawASquare(col, row, terrain, image);
+                            } else {
+                                drawASquare(col, row, terrain, images.mixed_ore);
+                            }
+                        }
+                    }
+                }
+
                 for (let row = 0; row < ROWS; row++) {
                     for (let col = 0; col < COLS; col++) {
                         const element = gameState[row][col];
                         const terrain = terrains[row][col];
-                        switch (element) {
-                            case elements.unknown:
-                                ctx.fillStyle = '#1a3320';
-                                ctx.fillRect(col * GRID_SIZE - borderWidth, row * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
-                                break;
-                            case elements.traversable:
-                                drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
-                                break;
-                            case elements.resource:
-                                drawASquare(col, row, terrain, images.mixed_ore);
-                                break;
-                            default:
-                                if(element < BOT_START_IDX){
-                                    let image = assetManager.getElementImage(element);
-                                    if(image && image.complete && image.naturalHeight > 0){
-                                        drawASquare(col, row, terrain, image);
-                                    } else {
-                                        drawASquare(col, row, terrain, images.mixed_ore);
-                                    }
-                                } else {
-                                    let botOffset = element - BOT_START_IDX;
-                                    let playerIndex = Math.floor(botOffset / botVariants.length);
-                                    let variantIdx = botOffset % botVariants.length;
-                                    let variant = botVariants[variantIdx] || 'kMiningBot';
-                                    let color = colors[playerIndex];
-                                    
-                                    let botEntry = botByPos.get(col + ',' + row);
-                                    let botJob = botEntry ? botEntry[3] : null;
-                                    let botCargo = botEntry ? botEntry[4] : null;
-                                    let img = assetManager.getBotImage(variant, botJob, botCargo);
-                                    
-                                    drawABot(col, row, color, img, terrain);
-                                }
-                        }
+                        drawTerrainCell(col, row, element, terrain);
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
                             ctx.strokeStyle = 'rgba(144,238,144,0.4)'; // light green gridlines
                             ctx.lineWidth = 1; // set border width
                             ctx.strokeRect(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                         }
                     }
+                }
+
+                for (const entry of botMap.values()) {
+                    const display = displayPositionForBot(entry, now);
+                    const [position, variant, _currentEnergy, job, cargo, playerIndex] = entry;
+                    const color = colors[playerIndex];
+                    const img = assetManager.getBotImage(variant, job, cargo);
+                    if (display.animating) isAnimating = true;
+                    drawABot(display.x, ROWS - display.y - 1, color, img);
+                }
+
+                if (isAnimating) {
+                    animationFrameId = requestAnimationFrame(render);
+                } else {
+                    animationFrameId = null;
                 }
             }
 
@@ -643,31 +658,25 @@ function drawGame(hostname, port) {
 
             //When receiving message from the server, parses it and applies updates to game accordingly
             ws.onmessage = function (msg) {
-                console.log('before parse:', msg);
                 try {
                     function parse_callback(json_string){
                         const data = JSON.parse(json_string);
-                        console.log('after parse:', data);
                         switch (data.update_type) {
                             case 'kTickUpdate':
-                                console.log('tick update: ', data)
                                 hasObservedTick = true;
                                 renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
                                 if (Array.isArray(data.bot_updates)) {
                                     data.bot_updates.forEach(botUpdate => {
-                                        console.log('botUpdate: ', botUpdate);
                                         updateBot(botUpdate, data.player_id);
                                     })
                                 }
                                 if (Array.isArray(data.job_updates)) {
                                     data.job_updates.forEach(jobUpdate => {
-                                        console.log('jobUpdate: ', jobUpdate);
                                         updateJob(jobUpdate);
                                     })
                                 }
                                 if (Array.isArray(data.land_updates)) {
                                     data.land_updates.forEach(landUpdate => {
-                                        console.log('landUpdate: ', landUpdate);
                                         updateLand(landUpdate);
                                     })
                                 }
@@ -721,6 +730,31 @@ function drawGame(hostname, port) {
                 return playerNames[playerId] || `Player ${playerId}`;
             }
 
+            function samePosition(a, b) {
+                return a && b && a.x === b.x && a.y === b.y;
+            }
+
+            function easeInOut(t) {
+                return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            }
+
+            function displayPositionForBot(entry, now = performance.now()) {
+                const position = entry[0];
+                const previousPosition = entry[6];
+                const animationStartedAt = entry[7] || 0;
+                if (!previousPosition || samePosition(previousPosition, position)) {
+                    return { x: position.x, y: position.y, animating: false };
+                }
+
+                const progress = Math.min(1, Math.max(0, (now - animationStartedAt) / MOVEMENT_ANIMATION_MS));
+                const eased = easeInOut(progress);
+                return {
+                    x: previousPosition.x + (position.x - previousPosition.x) * eased,
+                    y: previousPosition.y + (position.y - previousPosition.y) * eased,
+                    animating: progress < 1
+                };
+            }
+
             function escapeHTML(value) {
                 return String(value).replace(/[&<>"']/g, char => ({
                     '&': '&amp;',
@@ -744,8 +778,17 @@ function drawGame(hostname, port) {
             }
 
             function cargoAmount(cargo, resourceId) {
-                const chunk = cargo.find(item => item.id === resourceId);
+                const chunk = (cargo || []).find(item => item.id === resourceId);
                 return chunk ? chunk.amount : 0;
+            }
+
+            function cargoLoad(cargo) {
+                return (cargo || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            }
+
+            function variantCapacity(variant) {
+                const config = (map_config.variant_configs || []).find(item => item.variant === variant);
+                return config ? Number(config.cargo_capacity) : -1;
             }
 
             function progressForFactory(factoryCargo) {
@@ -796,11 +839,11 @@ function drawGame(hostname, port) {
                 heading.classList.add('win-progress-heading');
 
                 const title = document.createElement('span');
-                title.textContent = progress.botId === null ? 'Win progress' : `Factory ${progress.botId}`;
+                title.textContent = 'Win';
                 heading.appendChild(title);
 
                 const percent = document.createElement('span');
-                percent.textContent = `${progress.percent}%`;
+                percent.textContent = `${progress.current}/${progress.total || '-'}`;
                 heading.appendChild(percent);
                 progressBox.appendChild(heading);
 
@@ -822,9 +865,14 @@ function drawGame(hostname, port) {
                         row.classList.add('complete');
                     }
 
-                    const label = document.createElement('span');
-                    label.textContent = resource ? resource.name : `Resource ${chunk.id}`;
-                    row.appendChild(label);
+                    const { itemName, itemImageSrc } = assetManager.getItemInfo({ id: chunk.id, amount: chunk.amount });
+                    const icon = document.createElement('img');
+                    icon.classList.add('cargo-icon');
+                    icon.src = itemImageSrc;
+                    icon.alt = icon.title = resource ? resource.name : itemName;
+                    icon.width = 16;
+                    icon.height = 16;
+                    row.appendChild(icon);
 
                     const amount = document.createElement('span');
                     amount.textContent = `${chunk.amount}/${chunk.required}`;
@@ -849,8 +897,12 @@ function drawGame(hostname, port) {
                 const playerIndex = ensurePlayer(effectivePlayerId);
 
                 const { id, position, variant, current_energy, current_job_id, cargo } = botUpdate;
+                const existingBot = botMap.get(id);
+                const now = performance.now();
+                let previousPosition = position;
                 if (botMap.has(id)) {
-                    var oldPosition = botMap.get(id)[0];
+                    var oldPosition = existingBot[0];
+                    previousPosition = displayPositionForBot(existingBot, now);
                     var oldRow = ROWS - oldPosition.y - 1;
                     var oldCol = oldPosition.x;
                     gameState[oldRow][oldCol] = elements.traversable;
@@ -863,7 +915,7 @@ function drawGame(hostname, port) {
                 } else {
                     job = { action: 'kNoAction', status: 'kNotStarted' };
                 }
-                botMap.set(id, [position, variant, current_energy, job, cargo, playerIndex]);
+                botMap.set(id, [position, variant, current_energy, job, cargo || [], playerIndex, previousPosition, now]);
                 var newRow = ROWS - position.y - 1;
                 var newCol = position.x;
                 let variantIdx = botVariants.indexOf(variant);
@@ -951,20 +1003,70 @@ function drawGame(hostname, port) {
                 return energyWrap;
             }
 
+            function createCargoBar(cargo, variant) {
+                const currentLoad = cargoLoad(cargo);
+                const capacity = variantCapacity(variant);
+                const cargoWrap = document.createElement('div');
+                cargoWrap.classList.add('cargo-meter');
+                cargoWrap.setAttribute('title', capacity > 0 ? `Cargo ${currentLoad}/${capacity}` : `Cargo ${currentLoad}`);
+                cargoWrap.setAttribute('aria-label', capacity > 0 ? `Cargo ${currentLoad} of ${capacity}` : `Cargo ${currentLoad}`);
+
+                const fill = document.createElement('div');
+                fill.classList.add('cargo-fill');
+                fill.style.width = capacity > 0 ? `${Math.max(0, Math.min(100, (currentLoad / capacity) * 100))}%` : '0%';
+                cargoWrap.appendChild(fill);
+
+                const label = document.createElement('span');
+                label.classList.add('cargo-label');
+                label.textContent = capacity > 0 ? `${currentLoad}/${capacity}` : `${currentLoad}`;
+                cargoWrap.appendChild(label);
+
+                return cargoWrap;
+            }
+
+            function appendCargoChips(parent, cargo) {
+                const cargoContainer = document.createElement('div');
+                cargoContainer.classList.add('cargo-grid');
+
+                if (!cargo || cargo.length === 0) {
+                    const empty = document.createElement('span');
+                    empty.classList.add('cargo-empty');
+                    empty.textContent = 'No cargo';
+                    cargoContainer.appendChild(empty);
+                    parent.appendChild(cargoContainer);
+                    return;
+                }
+
+                cargo.forEach(item => {
+                    let { itemName, itemImageSrc } = assetManager.getItemInfo(item);
+                    const chip = document.createElement('span');
+                    chip.classList.add('cargo-chip');
+
+                    let mineralImage = document.createElement('img');
+                    mineralImage.alt = mineralImage.title = itemName;
+                    mineralImage.src = itemImageSrc;
+                    mineralImage.classList.add('cargo-icon');
+                    mineralImage.width = 16;
+                    mineralImage.height = 16;
+                    chip.appendChild(mineralImage);
+
+                    let mineralAmt = document.createElement('span');
+                    mineralAmt.textContent = item.amount;
+                    chip.appendChild(mineralAmt);
+
+                    cargoContainer.appendChild(chip);
+                });
+
+                parent.appendChild(cargoContainer);
+            }
+
             //shows a row for each player showing each bot and their data
             async function updateUI(player_id) {
                 const playerIndex = ensurePlayer(player_id);
 
-                console.log('Players object:', players);
-                console.log('Current player ID:', player_id);
-
-
                 await ensurePlayerName(player_id);
 
-                console.log('playerIndex:', playerIndex);
-
                 const sidebar = sidebars[playerIndex];
-                console.log('sidebar:', sidebar);
 
                 const color = colors[playerIndex];
 
@@ -977,10 +1079,6 @@ function drawGame(hostname, port) {
                 const playerName = document.createElement('h4');
                 playerName.textContent = getPlayerLabel(player_id);
                 header.appendChild(playerName);
-
-                const playerIdText = document.createElement('span');
-                playerIdText.textContent = `ID ${player_id}`;
-                header.appendChild(playerIdText);
                 sidebar.appendChild(header);
 
                 appendWinProgress(sidebar, playerIndex);
@@ -991,7 +1089,6 @@ function drawGame(hostname, port) {
                 for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of botMap.entries()) {
                     if (playerIndex == botPlayerIndex) { //THIS MIGHT NOT WORK
                         const botDiv = document.createElement('button');
-                        console.log('cargo: ', cargo);
                         botDiv.classList.add('bot-info');
                         botDiv.type = 'button';
                         botDiv.dataset.botId = id;
@@ -1006,7 +1103,6 @@ function drawGame(hostname, port) {
                     <img class="bot-sidebar-icon" src="${botImage.src || './assets/unknown.jpg'}" alt="${escapeHTML(variantName)}" width="28" height="28">
                     <div class="bot-title-group">
                         <h4 class="bot-title">${escapeHTML(variantName)}</h4>
-                        <span class="bot-id">#${id}</span>
                     </div>
                 </div>
                 <div class="bot-meta-row">
@@ -1015,31 +1111,8 @@ function drawGame(hostname, port) {
                 </div>
             `;
                         botDiv.appendChild(createEnergyBar(current_energy));
-// , ${job.status}
-                        const cargoContainer = document.createElement('div');
-
-                        //Creating a grid: left side will be image of mineral, right side will be count of mineral
-                        cargoContainer.classList.add('cargo-grid');
-
-                        // Add each cargo item as a new paragraph
-                        cargo.forEach(item => {
-                            let { itemName, itemImageSrc } = assetManager.getItemInfo(item);
-                            
-                            let mineralImage = document.createElement('img')
-                            mineralImage.alt = mineralImage.title = itemName;
-                            mineralImage.src = itemImageSrc;
-                            mineralImage.classList.add('cargo-icon');
-                            mineralImage.width = 16;
-                            mineralImage.height = 16;
-                            cargoContainer.appendChild(mineralImage);
-
-                            let mineralAmt = document.createElement('p')
-                            mineralAmt.innerHTML = `${item.amount}`
-                            cargoContainer.appendChild(mineralAmt)
-                        });
-
-                        // Append the cargo container to the botDiv
-                        botDiv.appendChild(cargoContainer);
+                        botDiv.appendChild(createCargoBar(cargo, variant));
+                        appendCargoChips(botDiv, cargo);
 
                         // Append the botDiv to the sidebar
                         botBox.appendChild(botDiv);
