@@ -35,3 +35,5 @@ p1.bootcamp.tk.sg {
 	}
 }
 ```
+
+*Icons from Font Awesome Free v7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.*
