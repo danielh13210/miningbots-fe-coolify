@@ -104,7 +104,7 @@ function setText(id, value) {
 
 function renderGameStatus(game, mapConfig, hasObservedTick = false) {
     if (!game) return;
-    const serverName = servers[server]?.name || server || `${hostname}:${port}`;
+    const serverName = config.get('instance_name') || `${hostname}:${port}`;
     const gameName = game.game_name || `Game ${game.game_id}`;
     const playerText = `${game.current_players ?? '-'} / ${game.max_players ?? mapConfig?.max_players ?? '-'}`;
     const mapText = mapConfig ? `${mapConfig.max_x} x ${mapConfig.max_y}` : '-';
@@ -1100,8 +1100,8 @@ function drawGame(hostname, port) {
                 }
             }
 
-
         })
+
         .catch((error) => {
             console.error("Error:", error);
             if(error instanceof GameUnvailableError){
