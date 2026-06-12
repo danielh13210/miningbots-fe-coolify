@@ -407,11 +407,13 @@ function drawGame(hostname, port) {
             var mapViewportWidth = mapViewport?.clientWidth || window.innerWidth;
             var mapViewportHeight = mapViewport?.clientHeight || window.innerHeight;
             var mapZoom = 1;
+            var minMapZoom = 1;
             var animationFrameId = null;
-            const MIN_MAP_ZOOM = 0.5;
             const MAX_MAP_ZOOM = 4;
             const MAP_ZOOM_STEP = 0.25;
             const MOVEMENT_ANIMATION_MS = 420;
+            const ORE_MAX_OPACITY = 0.8;
+            const ORE_MIN_OPACITY = 0.1;
             // map dimensions
             const COLS = map_config.max_x;
             const ROWS = map_config.max_y;
@@ -435,12 +437,14 @@ function drawGame(hostname, port) {
                 mapViewportHeight = mapViewport?.clientHeight || window.innerHeight;
                 const squareViewportSize = Math.min(mapViewportWidth, mapViewportHeight);
                 GRID_SIZE = Math.max(4, Math.floor(Math.min(squareViewportSize / COLS, squareViewportSize / ROWS))); // fit the map on to the square map viewport
+                minMapZoom = Math.max(1, squareViewportSize / Math.min(COLS * GRID_SIZE, ROWS * GRID_SIZE));
+                mapZoom = clampMapZoom(mapZoom);
                 applyMapZoom();
                 if(!lazy_render) render();
             }
 
             function clampMapZoom(value) {
-                return Math.max(MIN_MAP_ZOOM, Math.min(MAX_MAP_ZOOM, value));
+                return Math.max(minMapZoom, Math.min(MAX_MAP_ZOOM, value));
             }
 
             function applyMapZoom() {
@@ -514,6 +518,8 @@ function drawGame(hostname, port) {
                 };
                 setMapZoom(mapZoom + (event.deltaY < 0 ? MAP_ZOOM_STEP : -MAP_ZOOM_STEP), focalPoint);
             }, { passive: false });
+            mapViewport?.addEventListener('mousemove', event => updateMapTooltip(event));
+            mapViewport?.addEventListener('mouseleave', () => hideMapTooltip());
 
             let resource_configs = map_config.resource_configs;
 
@@ -537,11 +543,19 @@ function drawGame(hostname, port) {
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
             let terrains = Array.from({ length: ROWS }, () => Array(COLS).fill(terrainImages.unknown)); //all squares are unknown at the start
+            let resourceCells = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+            const resourceMaxByCell = new Map();
+            const mapTooltip = document.createElement('div');
+            mapTooltip.classList.add('map-tooltip', 'hidden');
+            document.body.appendChild(mapTooltip);
 
-            function drawASquare(c, r, background, image) {
+            function drawASquare(c, r, background, image, opacity = 1) {
                 ctx.drawImage(background, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
                 if (image) { //if an element image was given
+                    ctx.save();
+                    ctx.globalAlpha = opacity;
                     ctx.drawImage(image, c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                    ctx.restore();
                 }
             }
 
@@ -573,6 +587,30 @@ function drawGame(hostname, port) {
                 ctx.restore();
             }
 
+            function resourceCellKey(row, col, resourceId) {
+                return `${row}:${col}:${resourceId}`;
+            }
+
+            function resourceOpacity(row, col, resource) {
+                const key = resourceCellKey(row, col, resource.id);
+                const currentAmount = Number(resource.amount || 0);
+                const maxAmount = Math.max(resourceMaxByCell.get(key) || 0, currentAmount, 1);
+                resourceMaxByCell.set(key, maxAmount);
+                const ratio = Math.max(0, Math.min(1, currentAmount / maxAmount));
+                return ORE_MIN_OPACITY + (ORE_MAX_OPACITY - ORE_MIN_OPACITY) * ratio;
+            }
+
+            function drawResourceCell(col, row, terrain, fallbackImage) {
+                const cell = resourceCells[row][col];
+                if (!cell || !cell.primary || Number(cell.primary.amount || 0) <= 0) {
+                    drawASquare(col, row, terrain);
+                    return;
+                }
+
+                const image = assetManager.getElementImage(cell.element) || fallbackImage;
+                drawASquare(col, row, terrain, image, resourceOpacity(row, col, cell.primary));
+            }
+
             function render(now = performance.now()) {
                 if (animationFrameId !== null) {
                     cancelAnimationFrame(animationFrameId);
@@ -599,14 +637,14 @@ function drawGame(hostname, port) {
                             drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
                             break;
                         case elements.resource:
-                            drawASquare(col, row, terrain, images.mixed_ore);
+                            drawResourceCell(col, row, terrain, images.mixed_ore);
                             break;
                         default: {
                             let image = assetManager.getElementImage(element);
                             if(image && image.complete && image.naturalHeight > 0){
-                                drawASquare(col, row, terrain, image);
+                                drawResourceCell(col, row, terrain, image);
                             } else {
-                                drawASquare(col, row, terrain, images.mixed_ore);
+                                drawResourceCell(col, row, terrain, images.mixed_ore);
                             }
                         }
                     }
@@ -776,6 +814,94 @@ function drawGame(hostname, port) {
                     y: previousPosition.y + (position.y - previousPosition.y) * eased,
                     animating: progress < 1
                 };
+            }
+
+            function mapCellFromEvent(event) {
+                if (!mapViewport) return null;
+                const rect = canvas.getBoundingClientRect();
+                const x = (event.clientX - rect.left) / mapZoom;
+                const y = (event.clientY - rect.top) / mapZoom;
+                const col = Math.floor(x / GRID_SIZE);
+                const row = Math.floor(y / GRID_SIZE);
+                if (col < 0 || row < 0 || col >= COLS || row >= ROWS) return null;
+                return { col, row, position: { x: col, y: ROWS - row - 1 } };
+            }
+
+            function botAtCell(row, col) {
+                for (const [id, entry] of botMap.entries()) {
+                    const display = displayPositionForBot(entry);
+                    const botCol = Math.floor(display.x + 0.5);
+                    const botRow = ROWS - Math.floor(display.y + 0.5) - 1;
+                    if (botCol === col && botRow === row) {
+                        return { id, entry };
+                    }
+                }
+                return null;
+            }
+
+            function resourceName(resourceId) {
+                return map_config.resource_configs[resourceId]?.name || `Resource ${resourceId}`;
+            }
+
+            function formatCargo(cargo) {
+                if (!cargo || cargo.length === 0) return 'empty';
+                return cargo.map(item => `${resourceName(item.id)} ${item.amount}`).join(', ');
+            }
+
+            function tooltipRows(title, rows) {
+                return `<strong>${escapeHTML(title)}</strong>${rows.map(row => `<span>${escapeHTML(row)}</span>`).join('')}`;
+            }
+
+            function updateMapTooltip(event) {
+                const cell = mapCellFromEvent(event);
+                if (!cell) {
+                    hideMapTooltip();
+                    return;
+                }
+
+                const bot = botAtCell(cell.row, cell.col);
+                if (bot) {
+                    const [_position, variant, currentEnergy, job, cargo, playerIndex] = bot.entry;
+                    const capacity = variantCapacity(variant);
+                    const rows = [
+                        getPlayerLabel(Object.keys(players).find(id => players[id] === playerIndex) || playerIndex),
+                        `Position ${cell.position.x}, ${cell.position.y}`,
+                        `Energy ${currentEnergy}/${map_config.max_bot_energy}`,
+                        capacity > 0 ? `Cargo ${cargoLoad(cargo)}/${capacity}` : `Cargo ${cargoLoad(cargo)}`,
+                        `Job ${NameMaps.mapName("actionMap", job.action)}`,
+                        `Items ${formatCargo(cargo)}`
+                    ];
+                    showMapTooltip(event, tooltipRows(NameMaps.mapName("variantMap", variant), rows));
+                    return;
+                }
+
+                const resourceCell = resourceCells[cell.row][cell.col];
+                if (resourceCell && resourceCell.resources.length > 0) {
+                    const rows = resourceCell.resources
+                        .filter(resource => Number(resource.amount || 0) > 0)
+                        .map(resource => `${resourceName(resource.id)} ${resource.amount} left`);
+                    if (rows.length > 0) {
+                        showMapTooltip(event, tooltipRows('Ore', rows));
+                        return;
+                    }
+                }
+
+                hideMapTooltip();
+            }
+
+            function showMapTooltip(event, html) {
+                mapTooltip.innerHTML = html;
+                mapTooltip.classList.remove('hidden');
+                const offset = 14;
+                const tooltipRect = mapTooltip.getBoundingClientRect();
+                const left = Math.min(window.innerWidth - tooltipRect.width - 8, event.clientX + offset);
+                const top = Math.min(window.innerHeight - tooltipRect.height - 8, event.clientY + offset);
+                mapTooltip.style.left = `${Math.max(8, left)}px`;
+                mapTooltip.style.top = `${Math.max(8, top)}px`;
+            }
+
+            function hideMapTooltip() {
+                mapTooltip.classList.add('hidden');
             }
 
             function escapeHTML(value) {
@@ -967,23 +1093,33 @@ function drawGame(hostname, port) {
                 if(terrain_id < map_config.terrain_configs.length){
                     terrain_name = map_config.terrain_configs[terrain_id].name.toLowerCase();
                 }
-                terrains[ROWS - y - 1][x] = terrainImages[terrain_name];
+                const row = ROWS - y - 1;
+                const col = x;
+                terrains[row][col] = terrainImages[terrain_name];
 
                 if (is_traversable) {
-                    gameState[ROWS - y - 1][x] = elements.traversable;
+                    gameState[row][col] = elements.traversable;
+                    resourceCells[row][col] = null;
                 } else {
                     if (Array.isArray(resources)) {
                         var highestId = -1;
-                        resources.forEach(resource => {
-                            if (isMineableResource(resource.id) && resource.id > highestId) {
+                        const mineableResources = resources.filter(resource => isMineableResource(resource.id) && Number(resource.amount || 0) > 0);
+                        mineableResources.forEach(resource => {
+                            if (resource.id > highestId) {
                                 highestId = resource.id;
                             }
                         })
                         let cleanName = assetManager.resources[highestId];
                         if(cleanName !== undefined && elements[cleanName] !== undefined){
-                            gameState[ROWS - y - 1][x] = elements[cleanName];
+                            gameState[row][col] = elements[cleanName];
+                            resourceCells[row][col] = {
+                                element: elements[cleanName],
+                                primary: mineableResources.find(resource => resource.id === highestId),
+                                resources: mineableResources
+                            };
                         } else {
-                            gameState[ROWS - y - 1][x] = elements.resource;
+                            gameState[row][col] = elements.traversable;
+                            resourceCells[row][col] = null;
                         }
                     }
                 }

@@ -371,6 +371,18 @@
     @apply flex h-8 items-center justify-center rounded border border-slate-200 bg-white text-xs font-bold text-slate-700;
   }
 
+  .map-tooltip {
+    @apply pointer-events-none fixed z-[1200] max-w-64 rounded border border-slate-700 bg-slate-950/95 px-2.5 py-2 text-xs leading-tight text-white shadow-xl;
+  }
+
+  .map-tooltip strong {
+    @apply mb-1 block text-[11px] uppercase tracking-wide text-slate-200;
+  }
+
+  .map-tooltip span {
+    @apply block text-[11px] text-slate-100;
+  }
+
   #loadingbox {
     @apply flex h-6 w-screen items-center justify-center;
   }
