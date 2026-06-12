@@ -9,7 +9,7 @@ let LoadingBox = {
     }
 }
 document.head.insertAdjacentHTML("beforeend", `
-<link rel="stylesheet" href="/styles/loadingbox.css" type="text/css" />
+<link rel="stylesheet" href="/styles/tailwind.css" type="text/css" />
 `);
 let LB_OBJECT_=document.createElement("div");
 LB_OBJECT_.id="loadingbox";

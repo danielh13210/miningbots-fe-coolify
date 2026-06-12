@@ -171,7 +171,7 @@ let DialogUtilities = {
 export default DialogUtilities;
 
 // add stylesheet
-document.head.innerHTML+=`<link rel="stylesheet" href="/styles/dialog.css">`;
+document.head.innerHTML+=`<link rel="stylesheet" href="/styles/tailwind.css">`;
 
 // add key handlers
 document.addEventListener('keydown', (event) => {
