@@ -66,7 +66,7 @@
 
 @layer components {
   .app-shell {
-    @apply grid h-screen w-screen grid-cols-[minmax(0,1fr)_minmax(19rem,24vw)] overflow-hidden bg-slate-950;
+    @apply grid h-screen w-screen grid-cols-[100vh_minmax(19rem,1fr)] overflow-hidden bg-slate-950;
   }
 
   .app-nav {
@@ -343,11 +343,11 @@
   }
 
   .map-pane {
-    @apply min-h-0 min-w-0 overflow-hidden bg-slate-950;
+    @apply h-screen w-[100vh] min-w-0 overflow-hidden bg-slate-950;
   }
 
   .map-viewport {
-    @apply h-full w-full overflow-auto bg-slate-950;
+    @apply h-screen w-[100vh] overflow-auto bg-slate-950;
   }
 
   .map-canvas-stage {

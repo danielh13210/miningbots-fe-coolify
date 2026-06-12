@@ -433,7 +433,8 @@ function drawGame(hostname, port) {
             function updateDimensions(lazy_render) {
                 mapViewportWidth = mapViewport?.clientWidth || window.innerWidth;
                 mapViewportHeight = mapViewport?.clientHeight || window.innerHeight;
-                GRID_SIZE = Math.max(4, Math.floor(Math.min(mapViewportWidth / COLS, mapViewportHeight / ROWS))); // fit the map on to the map viewport
+                const squareViewportSize = Math.min(mapViewportWidth, mapViewportHeight);
+                GRID_SIZE = Math.max(4, Math.floor(Math.min(squareViewportSize / COLS, squareViewportSize / ROWS))); // fit the map on to the square map viewport
                 applyMapZoom();
                 if(!lazy_render) render();
             }
@@ -544,10 +545,32 @@ function drawGame(hostname, port) {
                 }
             }
 
+            function transparentColor(colour) {
+                return String(colour).replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, 'rgba($1,$2,$3,0)');
+            }
+
             function drawABot(c, r, colour, image) {
-                ctx.fillStyle = colour;
-                ctx.fillRect(c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
-                ctx.drawImage(image || images.unknown, c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                const x = c * GRID_SIZE;
+                const y = r * GRID_SIZE;
+                ctx.drawImage(image || images.unknown, x, y, GRID_SIZE, GRID_SIZE);
+
+                const gradient = ctx.createRadialGradient(
+                    x + GRID_SIZE / 2,
+                    y + GRID_SIZE / 2,
+                    GRID_SIZE * 0.08,
+                    x + GRID_SIZE / 2,
+                    y + GRID_SIZE / 2,
+                    GRID_SIZE * 0.56
+                );
+                gradient.addColorStop(0, colour);
+                gradient.addColorStop(0.58, colour);
+                gradient.addColorStop(1, transparentColor(colour));
+
+                ctx.save();
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y, GRID_SIZE, GRID_SIZE);
+                ctx.restore();
             }
 
             function render(now = performance.now()) {
@@ -786,6 +809,12 @@ function drawGame(hostname, port) {
                 return (cargo || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
             }
 
+            function isMineableResource(resourceId) {
+                const resource = map_config.resource_configs[resourceId];
+                if (!resource) return false;
+                return Number(resource.mine_interval) > 0 && Number(resource.mine_amount_per_interval) > 0;
+            }
+
             function variantCapacity(variant) {
                 const config = (map_config.variant_configs || []).find(item => item.variant === variant);
                 return config ? Number(config.cargo_capacity) : -1;
@@ -946,7 +975,7 @@ function drawGame(hostname, port) {
                     if (Array.isArray(resources)) {
                         var highestId = -1;
                         resources.forEach(resource => {
-                            if (resource.id > highestId) {
+                            if (isMineableResource(resource.id) && resource.id > highestId) {
                                 highestId = resource.id;
                             }
                         })
