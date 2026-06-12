@@ -309,26 +309,34 @@ function renderGameStatus(game, mapConfig, hasObservedTick = false) {
 }
 
 async function refreshGameStatus(matchGameId, mapConfig, hasObservedTick = false) {
-    try {
-        const response = await fetch(`${http_type}://${hostname}:${port}/games`, { method: 'GET' });
-        if (!response.ok) throw new Error(response.statusText);
-        const games = await response.json();
-        const game = games.find(g => g.game_id === matchGameId);
-        if (game) renderGameStatus(game, mapConfig, hasObservedTick);
-        return game;
-    } catch (error) {
-        console.error('Failed to refresh game status:', error);
-        return null;
-    }
+    const response = await fetch(`${http_type}://${hostname}:${port}/games`, { method: 'GET' });
+    if (!response.ok) throw new Error(response.statusText);
+    const games = await response.json();
+    const game = games.find(g => g.game_id === matchGameId);
+    if (game) renderGameStatus(game, mapConfig, hasObservedTick);
+    return game;
 }
 
 function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGame) {
+    const BASE_INTERVAL = 3000;
+    const MAX_INTERVAL = 30000;
+    let interval = BASE_INTERVAL;
+    let timeoutId = null;
+
     const poll = async () => {
-        const game = await refreshGameStatus(matchGameId, mapConfig, getHasObservedTick());
-        if (game && typeof onGame === 'function') onGame(game);
+        try {
+            const game = await refreshGameStatus(matchGameId, mapConfig, getHasObservedTick());
+            if (game && typeof onGame === 'function') onGame(game);
+            interval = BASE_INTERVAL;
+        } catch (error) {
+            interval = Math.min(interval * 2, MAX_INTERVAL);
+            console.warn(`Game status poll failed, retrying in ${interval / 1000}s:`, error.message);
+        }
+        timeoutId = setTimeout(poll, interval);
     };
+
     poll();
-    return window.setInterval(poll, 3000);
+    return { stop: () => clearTimeout(timeoutId) };
 }
 
 function drawGame(hostname, port) {
@@ -752,7 +760,7 @@ function drawGame(hostname, port) {
                                 console.log('game ended in draw');
                                 break;
                             default:
-                                console.log(data.UpdateType);
+                                console.log('Unhandled update_type:', data.update_type);
                                 break;
                         }
                     }
