@@ -9,14 +9,13 @@ import assetManager from './scripts/ui/asset_manager.js';
 
 console.log("script started");
 
-// Get hostname from cookie, otherwise leave as null
-const server = CookieUtilities.getCookie("lastServer");
+// Get selected server key from cookie, otherwise leave as null
+const serverKey = CookieUtilities.getCookie("lastServerKey");
 
 //Probably some default values for original testing:
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
 var hostname, port;
-// if (server !== null) hostname = server;
 
 const CONFIG_=SettingsManager.read_settings_cookie();
 const GameUnvailableError = class extends Error {
@@ -44,6 +43,30 @@ var servers = in_private_scope(()=>{
   let gport=CONFIG_.game_port;
   let lport=CONFIG_.localhost_port;
   let servers = {
+    "shared-server": {
+        name: "Shared Server",
+        url: `trainers.tnkr.be:35000`,
+    },
+    "team-1-gold-digger": {
+        name: "1 / Gold Digger",
+        url: `trainers.tnkr.be:35001`,
+    },
+    "team-2-4sigma": {
+        name: "2 / 4sigma",
+        url: `trainers.tnkr.be:35002`,
+    },
+    "team-3-johnson-johnson": {
+        name: "3 / Johnson Johnson",
+        url: `trainers.tnkr.be:35003`,
+    },
+    "team-4-resurrection": {
+        name: "4 / Resurrection",
+        url: `trainers.tnkr.be:35005`,
+    },
+    "competition": {
+        name: "Competition",
+        url: `trainers.tnkr.be:35010`,
+    },
     "p1.bootcamp.tk.sg": {
         name: "Game 1",
         url: `p1.bootcamp.tk.sg:${gport}`,
@@ -146,17 +169,15 @@ var servers = in_private_scope(()=>{
   return servers;
 });
 
-// Variable to hold the selected server URL
-let selectedServerUrl = null;
-
-if(server && servers[server]){
-    const isSpecial=servers[server].hasOwnProperty("type");
+if(serverKey && servers[serverKey]){
+    const selectedServer = servers[serverKey];
+    const isSpecial=selectedServer.hasOwnProperty("type");
     if(isSpecial){
-        setServerName(servers[server].name);
-        switch(servers[server].type){
+        setServerName(selectedServer.name);
+        switch(selectedServer.type){
             case "custom":
                 function empty_handler() {
-                    setServerName(servers[server].name.replace(/\.+$/, ""));
+                    setServerName(selectedServer.name.replace(/\.+$/, ""));
                     LoadingBox.setStatus(LoadingBox.Status.SERVER_UNAVAILABLE);
                     setTimeout(window.NavigationManager.showNavigation,200);
                 }
@@ -199,16 +220,13 @@ if(server && servers[server]){
                 break;
         }
     } else {
-        let url=servers[server].url;
-        if(url.indexOf(":")!=-1){
-            hostname = url.split(":")[0];
-            port = url.split(":")[1];
-        } else {
-            hostname = url;
-            port = (servers[hostname].require_security || CONFIG_['require_security']) ? '443' : '80';
-        }
-        set_protocols(servers[server].require_security);
-        setServerName(servers[hostname].name);
+        const url = SocketUtilities.breakUpSocket(selectedServer.url);
+        const protocol = url.protocol.substring(0, url.protocol.length - 1);
+        const shouldUseSecureConnection = selectedServer.require_security || CONFIG_['require_security'] || protocol == "https" || protocol == "wss";
+        hostname = url.hostname;
+        port = url.port || (shouldUseSecureConnection ? '443' : '80');
+        set_protocols(shouldUseSecureConnection);
+        setServerName(selectedServer.name);
         main();
     }
 }
@@ -216,9 +234,13 @@ if(server && servers[server]){
 function populateServerMenu() {
     let serverMenu = document.querySelector(".server-menu");
     Object.keys(servers).forEach(function (key) {
-        let server = servers[key];
-        let menuItem = `<a class="server-menu-item" href="#" data-url="${key}">${server.name}</a>`;
-        serverMenu.innerHTML += menuItem;
+        let serverEntry = servers[key];
+        let menuItem = document.createElement("a");
+        menuItem.className = "server-menu-item";
+        menuItem.href = "#";
+        menuItem.dataset.serverKey = key;
+        menuItem.textContent = serverEntry.name;
+        serverMenu.appendChild(menuItem);
     });
 }
 
@@ -229,16 +251,15 @@ document.addEventListener("DOMContentLoaded", function () {
     serverMenuItems.forEach(function (item) {
         item.addEventListener("click", function (event) {
             event.preventDefault();
-            selectedServerUrl = this.getAttribute("data-url");
+            const selectedServerKey = this.dataset.serverKey;
             window.NavigationManager.hideNavigation();
-            console.log(selectedServerUrl);
+            console.log(selectedServerKey);
             let selectedServerName = this.textContent;
             setServerName(selectedServerName);
             // Save to cookie first
-            CookieUtilities.setCookie("lastServer", selectedServerUrl, CookieUtilities.never);
+            CookieUtilities.setCookie("lastServerKey", selectedServerKey, CookieUtilities.never);
             CookieUtilities.deleteCookie("custom_server",'/');
             location.reload();
-            // drawGame(selectedServerUrl, port);
         });
     });
 });
@@ -289,7 +310,7 @@ function setText(id, value) {
 
 function renderGameStatus(game, mapConfig, hasObservedTick = false) {
     if (!game) return;
-    const serverName = servers[server]?.name || server || `${hostname}:${port}`;
+    const serverName = servers[serverKey]?.name || serverKey || `${hostname}:${port}`;
     const gameName = game.game_name || `Game ${game.game_id}`;
     const playerText = `${game.current_players ?? '-'} / ${game.max_players ?? mapConfig?.max_players ?? '-'}`;
     const mapText = mapConfig ? `${mapConfig.max_x} x ${mapConfig.max_y}` : '-';

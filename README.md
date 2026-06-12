@@ -5,6 +5,8 @@ This site connects to an ongoing `MiningBots` game and provices an birds-eye vie
 ## Deployment Notes
 Deploying this site publicly requires all endpoints be secured, ie `https`/`wss`. Reverse proxy non-TLS traffic as necessary such that your browser will not block loading mixed content from `https` and `http` sources.
 
+For trainer deployments where files are updated in place, serve the frontend with no-cache headers so browsers fetch changed JavaScript and CSS after a normal refresh. The native systemd helper in `tinkertanker/miningbots` uses `scripts/no-cache-http-server.py` for this.
+
 An example of a `Caddyfile` (this assumes this code is stored in `/opt/web/miningbots-fe`)
 
 ```Caddyfile
@@ -15,6 +17,9 @@ game.bootcamp.tk.sg {
 		Access-Control-Allow-Credentials true
 		Access-Control-Allow-Methods *
 		Access-Control-Allow-Headers *
+		Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+		Pragma "no-cache"
+		Expires "0"
 		defer
 	}
 	root * /opt/web/miningbots-fe
