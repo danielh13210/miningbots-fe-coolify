@@ -7,6 +7,7 @@ const NameMaps = {
         "kMine": "Mining resources",
         "kTransfer": "Transferring cargo",
         "kBuildBot": "Building new bot",
+        "kCraft": "Crafting",
         "kExplode": "Exploding",
         "kNumberOfActions": "Enumerating actions"
     },
@@ -23,7 +24,11 @@ const NameMaps = {
     },
     variantMap: {
         "kMiningBot": "Mining Bot",
-        "kFactoryBot": "Factory Bot"
+        "kFactoryBot": "Factory Bot",
+        "kScoutBot": "Scout Bot",
+        "kHaulerBot": "Hauler Bot",
+        "kAdvancedMinerBot": "Advanced Miner",
+        "kDisruptorBot": "Disruptor"
     }
 }
 NameMaps.mapName=function(table,key){

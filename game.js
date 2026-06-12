@@ -3,6 +3,7 @@ import {in_private_scope,with_value} from './scripts/utilities/functools.js';
 import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
 import LoadingBox from './scripts/ui/loadingbox.js';
+import assetManager from './scripts/ui/asset_manager.js';
 
 console.log("script started");
 
@@ -77,19 +78,86 @@ async function fetchPlayerNames(gameId, playerIds) {
     }
 }
 
+function formatServerStatus(status) {
+    return String(status || '-').replace(/^k/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
+function formatDisplayStatus(game, hasObservedTick) {
+    switch (game?.game_status) {
+        case 'kOpen':
+            return hasObservedTick ? 'Running' : 'Open / waiting for updates';
+        case 'kFull':
+            return hasObservedTick ? 'Running / full' : 'Full / waiting for updates';
+        case 'kNotStarted':
+            return 'Not started';
+        case 'kEnded':
+            return 'Ended';
+        default:
+            return formatServerStatus(game?.game_status);
+    }
+}
+
+function setText(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+}
+
+function renderGameStatus(game, mapConfig, hasObservedTick = false) {
+    if (!game) return;
+    const serverName = servers[server]?.name || server || `${hostname}:${port}`;
+    const gameName = game.game_name || `Game ${game.game_id}`;
+    const playerText = `${game.current_players ?? '-'} / ${game.max_players ?? mapConfig?.max_players ?? '-'}`;
+    const mapText = mapConfig ? `${mapConfig.max_x} x ${mapConfig.max_y}` : '-';
+    const statusText = formatDisplayStatus(game, hasObservedTick);
+    const statusState = document.getElementById('status-state');
+
+    setText('status-server', serverName);
+    setText('status-game', gameName);
+    setText('status-state', statusText);
+    setText('status-players', playerText);
+    setText('status-map', mapText);
+
+    if (statusState) {
+        statusState.dataset.status = hasObservedTick ? 'kRunning' : (game.game_status || '');
+        statusState.title = `Server status: ${formatServerStatus(game.game_status)}`;
+    }
+}
+
+async function refreshGameStatus(matchGameId, mapConfig, hasObservedTick = false) {
+    try {
+        const response = await fetch(`${http_type}://${hostname}:${port}/games`, { method: 'GET' });
+        if (!response.ok) throw new Error(response.statusText);
+        const games = await response.json();
+        const game = games.find(g => g.game_id === matchGameId);
+        if (game) renderGameStatus(game, mapConfig, hasObservedTick);
+        return game;
+    } catch (error) {
+        console.error('Failed to refresh game status:', error);
+        return null;
+    }
+}
+
+function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGame) {
+    const poll = async () => {
+        const game = await refreshGameStatus(matchGameId, mapConfig, getHasObservedTick());
+        if (game && typeof onGame === 'function') onGame(game);
+    };
+    poll();
+    return window.setInterval(poll, 3000);
+}
+
 function drawGame(hostname, port) {
     const canvas = document.getElementById("gameCanvas");
+    const mapViewport = document.getElementById("map-viewport");
+    const mapStage = document.getElementById("map-canvas-stage");
+    const zoomLabel = document.getElementById("map-zoom-label");
+    const zoomInButton = document.getElementById("zoom-in-button");
+    const zoomOutButton = document.getElementById("zoom-out-button");
+    const zoomResetButton = document.getElementById("zoom-reset-button");
     const ctx = canvas.getContext("2d");
 
     //Maybe adjust this to dynamically adapt such that the whole canvas will be shown regardless of map aspect ratio?
-    const images = {};
-    images.kMiningBot = new Image();
-    images.kMiningBot.src = "assets/Mining_Bot.png";
-    images.kFactoryBot = new Image();
-    images.kFactoryBot.src = "assets/Factory_Bot.png";
-    images.mixed_ore = new Image();
-    images.mixed_ore.src = "assets/Mixed_Ore.png";
-    images.unknown = new Image();
+    const images = assetManager.images;
     let terrainImages={};
 
     //Likely connecting to the server and retrieving initial game state
@@ -107,8 +175,10 @@ function drawGame(hostname, port) {
         })
         .then(games => {
             console.log('games:', games);
-            let gameId = games[0].game_id;
-            let gameStatus = games[0].game_status;
+            let selectedGame = games[0];
+            let gameId = selectedGame.game_id;
+            let gameStatus = selectedGame.game_status;
+            renderGameStatus(selectedGame);
             if (gameStatus == 'kEnded') {
                 console.log('failed to subscribe because game has ended');
                 throw new GameUnvailableError('Game has ended');
@@ -118,7 +188,7 @@ function drawGame(hostname, port) {
                 method: 'GET'
             });
 
-            return { response: fetch_map_config, game_id: gameId };
+            return { response: fetch_map_config, game_id: gameId, game: selectedGame };
         })
         .then(async result => {
             let response = await result.response;
@@ -126,7 +196,7 @@ function drawGame(hostname, port) {
             if (response.ok) {
                 console.log('Second fetch response:', response);
                 LoadingBox.setStatus(LoadingBox.Status.LOADING_COMPLETED);
-                return { map_config: response.json(), game_id: result.game_id };
+                return { map_config: response.json(), game_id: result.game_id, game: result.game };
             } else {
                 throw new Error(response.statusText);
             }
@@ -135,13 +205,30 @@ function drawGame(hostname, port) {
         .then(async result => {
             let map_config = await result.map_config;
             const matchGameId = result.game_id;
+            let selectedGameInfo = result.game;
+            let hasObservedTick = false;
+            renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
+            startGameStatusPolling(
+                matchGameId,
+                map_config,
+                () => hasObservedTick,
+                game => { selectedGameInfo = game; }
+            );
             console.log('map_config:', map_config);
             // rendring information
 
             // browser window dimensions
             var GRID_SIZE;
-            var screenWidth = window.innerWidth;
-            var screenHeight = window.innerHeight;
+            var mapViewportWidth = mapViewport?.clientWidth || window.innerWidth;
+            var mapViewportHeight = mapViewport?.clientHeight || window.innerHeight;
+            var mapZoom = 1;
+            var minMapZoom = 1;
+            var animationFrameId = null;
+            const MAX_MAP_ZOOM = 4;
+            const MAP_ZOOM_STEP = 0.25;
+            const MOVEMENT_ANIMATION_MS = 420;
+            const ORE_MAX_OPACITY = 0.8;
+            const ORE_MIN_OPACITY = 0.1;
             // map dimensions
             const COLS = map_config.max_x;
             const ROWS = map_config.max_y;
@@ -160,205 +247,312 @@ function drawGame(hostname, port) {
             });
             console.log(COLS);
 
-            // Update canvas dimensions
-            canvas.width = COLS * GRID_SIZE;
-            canvas.height = ROWS * GRID_SIZE;
-
-            //Since final canvas dimensions are known, resize the container that holds canvas and DIV for bot-info DIVs
-            //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
-            document.getElementById("game-info-container").style = "display: grid; grid-template-columns: " + canvas.width + "px " + (screenWidth - canvas.width) + "px"
-
             function updateDimensions(lazy_render) {
-                // browser window dimensions
-                screenWidth = window.innerWidth;
-                screenHeight = window.innerHeight;
-                GRID_SIZE = Math.min(screenWidth / COLS, screenHeight / ROWS); // fit the map on to the screen
-                // Update canvas dimensions
-                canvas.width = COLS * GRID_SIZE;
-                canvas.height = ROWS * GRID_SIZE;
-
-                updateSidebarDimensions();
+                mapViewportWidth = mapViewport?.clientWidth || window.innerWidth;
+                mapViewportHeight = mapViewport?.clientHeight || window.innerHeight;
+                const squareViewportSize = Math.min(mapViewportWidth, mapViewportHeight);
+                GRID_SIZE = Math.max(4, Math.floor(Math.min(squareViewportSize / COLS, squareViewportSize / ROWS))); // fit the map on to the square map viewport
+                minMapZoom = Math.max(1, squareViewportSize / Math.min(COLS * GRID_SIZE, ROWS * GRID_SIZE));
+                mapZoom = clampMapZoom(mapZoom);
+                applyMapZoom();
                 if(!lazy_render) render();
             }
 
-            let resource_configs = map_config.resource_configs;
-
-            const elements = {
-                /*kMiningBotOne: 0,
-                kFactoryBotOne: 1,
-                kMiningBotTwo: 2,
-                kFactoryBotTwo: 3,*/
-                unknown: 4,
-                traversable: 5,
-                resource: 6,
-                /*granite: 7,
-                vibranium: 8,
-                adamantite: 9,
-                unobtanium: 10*/
-            };
-
-            const resource_element_start_idx = Math.max(...Object.values(elements))+1; //the index where resource elements start in the elements object
-
-            const resources = {
-
+            function clampMapZoom(value) {
+                return Math.max(minMapZoom, Math.min(MAX_MAP_ZOOM, value));
             }
 
-            // let resource_configs = result.map_config.resource_configs;
-            //Adds new game elements from resource_configs if they do not already exist
-            resource_configs.forEach(resource => {
-                resources[Object.keys(resources).length] = resource.name.toLowerCase();
-                elements[resource.name.toLowerCase()] = resource_element_start_idx + Object.keys(resources).length-1;
-                images[resource.name.toLowerCase()] = new Image();
-                images[resource.name.toLowerCase()].src = 'assets/' + resource.name.toLowerCase() + '.png';
-            });
-            const BOT_START_IDX=Math.max(...Object.values(elements))+1; //the index where bot elements start in the elements object
+            function applyMapZoom() {
+                const pixelRatio = window.devicePixelRatio || 1;
+                const scaledWidth = Math.max(1, Math.round(COLS * GRID_SIZE * mapZoom));
+                const scaledHeight = Math.max(1, Math.round(ROWS * GRID_SIZE * mapZoom));
+                canvas.width = Math.max(1, Math.round(scaledWidth * pixelRatio));
+                canvas.height = Math.max(1, Math.round(scaledHeight * pixelRatio));
+                canvas.style.width = `${scaledWidth}px`;
+                canvas.style.height = `${scaledHeight}px`;
+                ctx.setTransform(pixelRatio * mapZoom, 0, 0, pixelRatio * mapZoom, 0, 0);
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                if (mapStage) {
+                    mapStage.style.width = `${scaledWidth}px`;
+                    mapStage.style.height = `${scaledHeight}px`;
+                }
+                if (zoomLabel) {
+                    zoomLabel.textContent = `${Math.round(mapZoom * 100)}%`;
+                }
+            }
 
-            function addTerrain(terrain_name){
+            function setMapZoom(nextZoom, focalPoint) {
+                const oldZoom = mapZoom;
+                const clampedZoom = clampMapZoom(nextZoom);
+                if (oldZoom === clampedZoom) return;
+
+                const viewport = mapViewport;
+                const focus = focalPoint || {
+                    x: viewport ? viewport.scrollLeft + viewport.clientWidth / 2 : 0,
+                    y: viewport ? viewport.scrollTop + viewport.clientHeight / 2 : 0
+                };
+                const mapX = focus.x / oldZoom;
+                const mapY = focus.y / oldZoom;
+
+                mapZoom = clampedZoom;
+                applyMapZoom();
+                render();
+
+                if (viewport) {
+                    viewport.scrollLeft = mapX * mapZoom - viewport.clientWidth / 2;
+                    viewport.scrollTop = mapY * mapZoom - viewport.clientHeight / 2;
+                }
+            }
+
+            function focusMapOnPosition(position, targetZoom = Math.max(1.5, mapZoom)) {
+                if (!mapViewport || !position) return;
+                if (targetZoom > mapZoom) {
+                    setMapZoom(targetZoom);
+                }
+
+                const centerX = (position.x + 0.5) * GRID_SIZE * mapZoom;
+                const centerY = (ROWS - position.y - 0.5) * GRID_SIZE * mapZoom;
+                mapViewport.scrollTo({
+                    left: Math.max(0, centerX - mapViewport.clientWidth / 2),
+                    top: Math.max(0, centerY - mapViewport.clientHeight / 2),
+                    behavior: 'smooth'
+                });
+            }
+
+            zoomInButton?.addEventListener('click', () => setMapZoom(mapZoom + MAP_ZOOM_STEP));
+            zoomOutButton?.addEventListener('click', () => setMapZoom(mapZoom - MAP_ZOOM_STEP));
+            zoomResetButton?.addEventListener('click', () => setMapZoom(1));
+            mapViewport?.addEventListener('wheel', event => {
+                if (!event.ctrlKey && !event.metaKey) return;
+                event.preventDefault();
+                const rect = mapViewport.getBoundingClientRect();
+                const focalPoint = {
+                    x: mapViewport.scrollLeft + event.clientX - rect.left,
+                    y: mapViewport.scrollTop + event.clientY - rect.top
+                };
+                setMapZoom(mapZoom + (event.deltaY < 0 ? MAP_ZOOM_STEP : -MAP_ZOOM_STEP), focalPoint);
+            }, { passive: false });
+            mapViewport?.addEventListener('mousemove', event => updateMapTooltip(event));
+            mapViewport?.addEventListener('mouseleave', () => hideMapTooltip());
+
+            let resource_configs = map_config.resource_configs;
+
+            // Initialize assets dynamically from map_config using the assetManager
+            assetManager.initializeDynamicAssets(map_config);
+
+            const elements = assetManager.elements;
+            const resources = assetManager.resources;
+            const botVariants = assetManager.botVariants;
+            const BOT_START_IDX = assetManager.BOT_START_IDX;
+
+            function addTerrain(terrain_name, filename){
                 terrainImages[terrain_name] = new Image();
-                terrainImages[terrain_name].src = 'assets/' + terrain_name + '.jpg';
+                terrainImages[terrain_name].src = 'assets/' + (filename || terrain_name) + '.jpg';
             }
             //Adds new terrain images from terrain_configs
             addTerrain('unknown'); //always have unknown terrain
             map_config.terrain_configs.forEach(terrain => {
-                addTerrain(terrain.name.toLowerCase());
+                addTerrain(terrain.name.toLowerCase(), 'Terrain_' + terrain.name);
             });
 
             let gameState = Array.from({ length: ROWS }, () => Array(COLS).fill(elements.unknown)); //all squares are unknown at the start
             let terrains = Array.from({ length: ROWS }, () => Array(COLS).fill(terrainImages.unknown)); //all squares are unknown at the start
+            let resourceCells = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+            const resourceMaxByCell = new Map();
+            const mapTooltip = document.createElement('div');
+            mapTooltip.classList.add('map-tooltip', 'hidden');
+            document.body.appendChild(mapTooltip);
 
-            function updateSidebarDimensions() {
-                //Since final canvas dimensions are known, resize the container that holds canvas and DIV for bot-info DIVs
-                //This allows the bot-info DIVs to be directly right next to the game canvas without any ugly white space
-                document.getElementById("game-info-container").style.gridTemplateColumns = canvas.width + "px " + (screenWidth - canvas.width) + "px";
-
-                //Allows the bot-info container to take up as much remaining space as possible (on the right; not any space of game canvas)
-                document.getElementById("bot-info-megacontainer").style.width = screenWidth - canvas.width + "px";
-            }
-
-            function drawASquare(c, r, background, image) {
+            function drawASquare(c, r, background, image, opacity = 1) {
                 ctx.drawImage(background, c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
                 if (image) { //if an element image was given
+                    ctx.save();
+                    ctx.globalAlpha = opacity;
                     ctx.drawImage(image, c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                    ctx.restore();
                 }
             }
 
-            //this exists because the bots have a background colour that indicates the player they are attached to, instead of the terrain
-            //can remove this if the background is also changed to an image
-            function drawABot(c, r, colour, image) {
-                ctx.fillStyle = colour;
-                ctx.fillRect(c * GRID_SIZE - borderWidth, r * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
-                ctx.drawImage(image, c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+            function transparentColor(colour) {
+                return String(colour).replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, 'rgba($1,$2,$3,0)');
             }
 
-            function render() {
+            function drawABot(c, r, colour, image) {
+                const x = c * GRID_SIZE;
+                const y = r * GRID_SIZE;
+                ctx.drawImage(image || images.unknown, x, y, GRID_SIZE, GRID_SIZE);
+
+                const gradient = ctx.createRadialGradient(
+                    x + GRID_SIZE / 2,
+                    y + GRID_SIZE / 2,
+                    GRID_SIZE * 0.08,
+                    x + GRID_SIZE / 2,
+                    y + GRID_SIZE / 2,
+                    GRID_SIZE * 0.56
+                );
+                gradient.addColorStop(0, colour);
+                gradient.addColorStop(0.58, colour);
+                gradient.addColorStop(1, transparentColor(colour));
+
+                ctx.save();
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y, GRID_SIZE, GRID_SIZE);
+                ctx.restore();
+            }
+
+            function resourceCellKey(row, col, resourceId) {
+                return `${row}:${col}:${resourceId}`;
+            }
+
+            function resourceOpacity(row, col, resource) {
+                const key = resourceCellKey(row, col, resource.id);
+                const currentAmount = Number(resource.amount || 0);
+                const maxAmount = Math.max(resourceMaxByCell.get(key) || 0, currentAmount, 1);
+                resourceMaxByCell.set(key, maxAmount);
+                const ratio = Math.max(0, Math.min(1, currentAmount / maxAmount));
+                return ORE_MIN_OPACITY + (ORE_MAX_OPACITY - ORE_MIN_OPACITY) * ratio;
+            }
+
+            function drawResourceCell(col, row, terrain, fallbackImage) {
+                const cell = resourceCells[row][col];
+                if (!cell || !cell.primary || Number(cell.primary.amount || 0) <= 0) {
+                    drawASquare(col, row, terrain);
+                    return;
+                }
+
+                const image = assetManager.getElementImage(cell.element) || fallbackImage;
+                drawASquare(col, row, terrain, image, resourceOpacity(row, col, cell.primary));
+            }
+
+            function render(now = performance.now()) {
+                if (animationFrameId !== null) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+                let isAnimating = false;
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+
+                function drawTerrainCell(col, row, element, terrain) {
+                    if (element >= BOT_START_IDX) {
+                        drawASquare(col, row, terrain);
+                        return;
+                    }
+
+                    switch (element) {
+                        case elements.unknown:
+                            ctx.fillStyle = '#1a3320';
+                            ctx.fillRect(col * GRID_SIZE - borderWidth, row * GRID_SIZE - borderWidth, GRID_SIZE + borderWidth, GRID_SIZE + borderWidth);
+                            break;
+                        case elements.traversable:
+                            drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
+                            break;
+                        case elements.resource:
+                            drawResourceCell(col, row, terrain, images.mixed_ore);
+                            break;
+                        default: {
+                            let image = assetManager.getElementImage(element);
+                            if(image && image.complete && image.naturalHeight > 0){
+                                drawResourceCell(col, row, terrain, image);
+                            } else {
+                                drawResourceCell(col, row, terrain, images.mixed_ore);
+                            }
+                        }
+                    }
+                }
+
                 for (let row = 0; row < ROWS; row++) {
                     for (let col = 0; col < COLS; col++) {
                         const element = gameState[row][col];
                         const terrain = terrains[row][col];
-                        switch (element) {
-                            /*case elements.kFactoryBotOne: // Blue
-                                drawABot(col, row, '#25537b', images.kFactoryBot);
-                                //drawASquare(col, row, terrain, images.kFactoryBot);
-                                break;
-                            case elements.kMiningBotOne: // Blue
-                                drawABot(col, row, '#25537b', images.kMiningBot);
-                                //drawASquare(col, row, terrain, images.kMiningBot);
-                                break;
-                            case elements.kFactoryBotTwo: // Red
-                                drawABot(col, row, '#AA4344', images.kFactoryBot);
-                                //drawASquare(col, row, terrain, images.kFactoryBot);
-                                break;
-                            case elements.kMiningBotTwo: // Red
-                                drawABot(col, row, '#AA4344', images.kMiningBot);
-                                //drawASquare(col, row, terrain, images.kMiningBot);
-                                break;*/
-                            case elements.unknown:
-                                drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
-                                break;
-                            case elements.traversable:
-                                drawASquare(col, row, terrain); //nothing occupying the space, so no additional image
-                                break;
-                            case elements.resource:
-                                ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
-                                break;
-                            /*case elements.granite:
-                                drawASquare(col, row, terrain, images.granite);
-                                break;
-                            case elements.vibranium:
-                                drawASquare(col, row, terrain, images.vibranium);
-                                break;
-                            case elements.adamantite:
-                                drawASquare(col, row, terrain, images.adamantite);
-                                break;
-                            case elements.unobtanium:
-                                drawASquare(col, row, terrain, images.unobtanium);
-                                break;*/
-                            default:
-                                if(element < BOT_START_IDX){
-                                    const resourceId = resources[element-resource_element_start_idx];
-                                    let image=images[resourceId.toLowerCase()];
-                                    if(image.complete && image.naturalHeight > 0){
-                                        drawASquare(col, row, terrain, image);
-                                    } else {
-                                        ctx.drawImage(images.mixed_ore, col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
-                                    }
-                                } else {
-                                    let playerIndex = Math.floor((element - BOT_START_IDX) / 2);
-                                    let variant = (element - BOT_START_IDX) % 2 === 0 ? 'kMiningBot' : 'kFactoryBot';
-                                    let color=colors[playerIndex];
-                                    drawABot(col, row, color, images[variant]);
-                                }
-                        }
+                        drawTerrainCell(col, row, element, terrain);
                         if (COLS < MAX_WHITE_WIDTH && ROWS < MAX_WHITE_HEIGHT) { //if map is small enough, show white grid
-                            ctx.strokeStyle = 'white'; // set border color to white
+                            ctx.strokeStyle = 'rgba(144,238,144,0.4)'; // light green gridlines
                             ctx.lineWidth = 1; // set border width
                             ctx.strokeRect(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                         }
                     }
                 }
+
+                for (const entry of botMap.values()) {
+                    const display = displayPositionForBot(entry, now);
+                    const [position, variant, _currentEnergy, job, cargo, playerIndex] = entry;
+                    const color = colors[playerIndex];
+                    const img = assetManager.getBotImage(variant, job, cargo);
+                    if (display.animating) isAnimating = true;
+                    drawABot(display.x, ROWS - display.y - 1, color, img);
+                }
+
+                if (isAnimating) {
+                    animationFrameId = requestAnimationFrame(render);
+                } else {
+                    animationFrameId = null;
+                }
             }
 
             // randomState();
-            render();
-
-            const ws = new WebSocket(`${ws_type}://${hostname}:${port}/observer`);
+            // Declared before the first render() call: render() reads botMap
+            // (and the resize handler can call render() too), so these must be
+            // initialized first to avoid a temporal-dead-zone ReferenceError.
             const botMap = new Map();
             const jobMap = new Map();
             const players = {};
             const playerNames = {};
+            render();
+
+            const ws = new WebSocket(`${ws_type}://${hostname}:${port}/observer`);
 
             ws.onopen = function () {
                 console.log('Connected to WebSocket server');
                 const subscribeRequest = JSON.stringify({ game_id: result.game_id, observer_key: Number(config.get("observer_key")), observer_name: 'Observer' });
                 ws.send(subscribeRequest);
+
+                // Pre-create placeholder sidebars for all players currently in the game.
+                // Without this, idle players never appear because the observer only learns
+                // about a player when it receives a tick update for them.
+                refreshGameStatus(matchGameId, map_config, hasObservedTick)
+                    .then(game => {
+                        if (!game) return;
+                        selectedGameInfo = game;
+                        const megacontainer = document.getElementById('player-sidebar-list');
+                        while (sidebars.length < game.current_players) {
+                            const idx = sidebars.length;
+                            const sidebar = document.createElement('div');
+                            sidebar.classList.add('sidebar');
+                            sidebar.id = 'bot-sidebar-' + (idx + 1);
+                            sidebar.innerHTML = `<div class="player-header"><h4>Player ${idx + 1}</h4><span>Waiting for updates...</span></div>`;
+                            megacontainer.appendChild(sidebar);
+                            sidebars.push(sidebar);
+                        }
+                    })
+                    .catch(e => console.error('Failed to pre-create player sidebars:', e));
             };
 
             //When receiving message from the server, parses it and applies updates to game accordingly
             ws.onmessage = function (msg) {
-                console.log('before parse:', msg);
                 try {
                     function parse_callback(json_string){
                         const data = JSON.parse(json_string);
-                        console.log('after parse:', data);
                         switch (data.update_type) {
                             case 'kTickUpdate':
-                                console.log('tick update: ', data)
+                                hasObservedTick = true;
+                                renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
                                 if (Array.isArray(data.bot_updates)) {
                                     data.bot_updates.forEach(botUpdate => {
-                                        console.log('botUpdate: ', botUpdate);
                                         updateBot(botUpdate, data.player_id);
                                     })
                                 }
                                 if (Array.isArray(data.job_updates)) {
                                     data.job_updates.forEach(jobUpdate => {
-                                        console.log('jobUpdate: ', jobUpdate);
                                         updateJob(jobUpdate);
                                     })
                                 }
                                 if (Array.isArray(data.land_updates)) {
                                     data.land_updates.forEach(landUpdate => {
-                                        console.log('landUpdate: ', landUpdate);
                                         updateLand(landUpdate);
                                     })
                                 }
@@ -390,22 +584,139 @@ function drawGame(hostname, port) {
             //Sidebars has to be dynamically added if in the future you want >2 players
             const sidebars = Array.from(document.querySelectorAll('div[id^="bot-sidebar-"]'));
             //Possibly add more colours for >2 players too
-            const colors = ['blue', 'red', 'green', 'yellow', 'purple', 'orange', 'pink'];
+            const colors = ['rgba(0,100,255,0.35)', 'rgba(220,50,50,0.35)', 'rgba(0,190,0,0.35)', 'rgba(220,200,0,0.35)', 'rgba(170,0,230,0.35)', 'rgba(230,130,0,0.35)', 'rgba(230,80,160,0.35)'];
 
             function ensurePlayer(playerId) {
                 if (!players.hasOwnProperty(playerId)) {
-                    players[playerId] = Object.keys(players).length;
-                    let sidebar=document.createElement("div");
-                    sidebar.classList.add("sidebar");
-                    sidebar.id="bot-sidebar-"+(Object.keys(players).length);
-                    document.getElementById("bot-info-megacontainer").appendChild(sidebar);
-                    sidebars.push(sidebar);
+                    const playerIndex = Object.keys(players).length;
+                    players[playerId] = playerIndex;
+                    if (playerIndex >= sidebars.length) {
+                        // No pre-created placeholder available, create one now
+                        const sidebar = document.createElement('div');
+                        sidebar.classList.add('sidebar');
+                        sidebar.id = 'bot-sidebar-' + (playerIndex + 1);
+                        document.getElementById('player-sidebar-list').appendChild(sidebar);
+                        sidebars.push(sidebar);
+                    }
                 }
                 return players[playerId];
             }
 
             function getPlayerLabel(playerId) {
                 return playerNames[playerId] || `Player ${playerId}`;
+            }
+
+            function samePosition(a, b) {
+                return a && b && a.x === b.x && a.y === b.y;
+            }
+
+            function easeInOut(t) {
+                return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            }
+
+            function displayPositionForBot(entry, now = performance.now()) {
+                const position = entry[0];
+                const previousPosition = entry[6];
+                const animationStartedAt = entry[7] || 0;
+                if (!previousPosition || samePosition(previousPosition, position)) {
+                    return { x: position.x, y: position.y, animating: false };
+                }
+
+                const progress = Math.min(1, Math.max(0, (now - animationStartedAt) / MOVEMENT_ANIMATION_MS));
+                const eased = easeInOut(progress);
+                return {
+                    x: previousPosition.x + (position.x - previousPosition.x) * eased,
+                    y: previousPosition.y + (position.y - previousPosition.y) * eased,
+                    animating: progress < 1
+                };
+            }
+
+            function mapCellFromEvent(event) {
+                if (!mapViewport) return null;
+                const rect = canvas.getBoundingClientRect();
+                const x = (event.clientX - rect.left) / mapZoom;
+                const y = (event.clientY - rect.top) / mapZoom;
+                const col = Math.floor(x / GRID_SIZE);
+                const row = Math.floor(y / GRID_SIZE);
+                if (col < 0 || row < 0 || col >= COLS || row >= ROWS) return null;
+                return { col, row, position: { x: col, y: ROWS - row - 1 } };
+            }
+
+            function botAtCell(row, col) {
+                for (const [id, entry] of botMap.entries()) {
+                    const display = displayPositionForBot(entry);
+                    const botCol = Math.floor(display.x + 0.5);
+                    const botRow = ROWS - Math.floor(display.y + 0.5) - 1;
+                    if (botCol === col && botRow === row) {
+                        return { id, entry };
+                    }
+                }
+                return null;
+            }
+
+            function resourceName(resourceId) {
+                return map_config.resource_configs[resourceId]?.name || `Resource ${resourceId}`;
+            }
+
+            function formatCargo(cargo) {
+                if (!cargo || cargo.length === 0) return 'empty';
+                return cargo.map(item => `${resourceName(item.id)} ${item.amount}`).join(', ');
+            }
+
+            function tooltipRows(title, rows) {
+                return `<strong>${escapeHTML(title)}</strong>${rows.map(row => `<span>${escapeHTML(row)}</span>`).join('')}`;
+            }
+
+            function updateMapTooltip(event) {
+                const cell = mapCellFromEvent(event);
+                if (!cell) {
+                    hideMapTooltip();
+                    return;
+                }
+
+                const bot = botAtCell(cell.row, cell.col);
+                if (bot) {
+                    const [_position, variant, currentEnergy, job, cargo, playerIndex] = bot.entry;
+                    const capacity = variantCapacity(variant);
+                    const rows = [
+                        getPlayerLabel(Object.keys(players).find(id => players[id] === playerIndex) || playerIndex),
+                        `Position ${cell.position.x}, ${cell.position.y}`,
+                        `Energy ${currentEnergy}/${map_config.max_bot_energy}`,
+                        capacity > 0 ? `Cargo ${cargoLoad(cargo)}/${capacity}` : `Cargo ${cargoLoad(cargo)}`,
+                        `Job ${NameMaps.mapName("actionMap", job.action)}`,
+                        `Items ${formatCargo(cargo)}`
+                    ];
+                    showMapTooltip(event, tooltipRows(NameMaps.mapName("variantMap", variant), rows));
+                    return;
+                }
+
+                const resourceCell = resourceCells[cell.row][cell.col];
+                if (resourceCell && resourceCell.resources.length > 0) {
+                    const rows = resourceCell.resources
+                        .filter(resource => Number(resource.amount || 0) > 0)
+                        .map(resource => `${resourceName(resource.id)} ${resource.amount} left`);
+                    if (rows.length > 0) {
+                        showMapTooltip(event, tooltipRows('Ore', rows));
+                        return;
+                    }
+                }
+
+                hideMapTooltip();
+            }
+
+            function showMapTooltip(event, html) {
+                mapTooltip.innerHTML = html;
+                mapTooltip.classList.remove('hidden');
+                const offset = 14;
+                const tooltipRect = mapTooltip.getBoundingClientRect();
+                const left = Math.min(window.innerWidth - tooltipRect.width - 8, event.clientX + offset);
+                const top = Math.min(window.innerHeight - tooltipRect.height - 8, event.clientY + offset);
+                mapTooltip.style.left = `${Math.max(8, left)}px`;
+                mapTooltip.style.top = `${Math.max(8, top)}px`;
+            }
+
+            function hideMapTooltip() {
+                mapTooltip.classList.add('hidden');
             }
 
             function escapeHTML(value) {
@@ -431,8 +742,23 @@ function drawGame(hostname, port) {
             }
 
             function cargoAmount(cargo, resourceId) {
-                const chunk = cargo.find(item => item.id === resourceId);
+                const chunk = (cargo || []).find(item => item.id === resourceId);
                 return chunk ? chunk.amount : 0;
+            }
+
+            function cargoLoad(cargo) {
+                return (cargo || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            }
+
+            function isMineableResource(resourceId) {
+                const resource = map_config.resource_configs[resourceId];
+                if (!resource) return false;
+                return Number(resource.mine_interval) > 0 && Number(resource.mine_amount_per_interval) > 0;
+            }
+
+            function variantCapacity(variant) {
+                const config = (map_config.variant_configs || []).find(item => item.variant === variant);
+                return config ? Number(config.cargo_capacity) : -1;
             }
 
             function progressForFactory(factoryCargo) {
@@ -483,11 +809,11 @@ function drawGame(hostname, port) {
                 heading.classList.add('win-progress-heading');
 
                 const title = document.createElement('span');
-                title.textContent = progress.botId === null ? 'Win progress' : `Factory ${progress.botId}`;
+                title.textContent = 'Win';
                 heading.appendChild(title);
 
                 const percent = document.createElement('span');
-                percent.textContent = `${progress.percent}%`;
+                percent.textContent = `${progress.current}/${progress.total || '-'}`;
                 heading.appendChild(percent);
                 progressBox.appendChild(heading);
 
@@ -509,9 +835,14 @@ function drawGame(hostname, port) {
                         row.classList.add('complete');
                     }
 
-                    const label = document.createElement('span');
-                    label.textContent = resource ? resource.name : `Resource ${chunk.id}`;
-                    row.appendChild(label);
+                    const { itemName, itemImageSrc } = assetManager.getItemInfo({ id: chunk.id, amount: chunk.amount });
+                    const icon = document.createElement('img');
+                    icon.classList.add('cargo-icon');
+                    icon.src = itemImageSrc;
+                    icon.alt = icon.title = resource ? resource.name : itemName;
+                    icon.width = 16;
+                    icon.height = 16;
+                    row.appendChild(icon);
 
                     const amount = document.createElement('span');
                     amount.textContent = `${chunk.amount}/${chunk.required}`;
@@ -536,8 +867,12 @@ function drawGame(hostname, port) {
                 const playerIndex = ensurePlayer(effectivePlayerId);
 
                 const { id, position, variant, current_energy, current_job_id, cargo } = botUpdate;
+                const existingBot = botMap.get(id);
+                const now = performance.now();
+                let previousPosition = position;
                 if (botMap.has(id)) {
-                    var oldPosition = botMap.get(id)[0];
+                    var oldPosition = existingBot[0];
+                    previousPosition = displayPositionForBot(existingBot, now);
                     var oldRow = ROWS - oldPosition.y - 1;
                     var oldCol = oldPosition.x;
                     gameState[oldRow][oldCol] = elements.traversable;
@@ -550,17 +885,12 @@ function drawGame(hostname, port) {
                 } else {
                     job = { action: 'kNoAction', status: 'kNotStarted' };
                 }
-                botMap.set(id, [position, variant, current_energy, job, cargo, playerIndex]);
+                botMap.set(id, [position, variant, current_energy, job, cargo || [], playerIndex, previousPosition, now]);
                 var newRow = ROWS - position.y - 1;
                 var newCol = position.x;
-                var playerNum = '';
-                if (playerIndex == 0) {
-                    playerNum = 'One';
-                } else {
-                    playerNum = 'Two';
-                }
-                var element = String(variant) + playerNum;
-                gameState[newRow][newCol] = elements[element];
+                let variantIdx = botVariants.indexOf(variant);
+                if (variantIdx === -1) variantIdx = 0;
+                gameState[newRow][newCol] = BOT_START_IDX + playerIndex * botVariants.length + variantIdx;
                 renderBots();
             }
 
@@ -574,58 +904,37 @@ function drawGame(hostname, port) {
             //Updates the state of a tile on the map
             function updateLand(data) {
                 const { position: { x, y }, is_traversable, resources, terrain_id } = data;
-                /*switch (terrain_id) {
-                    case 0:
-                        terrains[ROWS - y - 1][x] = terrainImages.grassland;
-                        break;
-                    case 1:
-                        terrains[ROWS - y - 1][x] = terrainImages.hills;
-                        break
-                    case 2:
-                        terrains[ROWS - y - 1][x] = terrainImages.mountain;
-                        break;
-                    default:
-                        terrains[ROWS - y - 1][x] = terrainImages.unknown;
-                }*/
                 let terrain_name = 'unknown';
                 if(terrain_id < map_config.terrain_configs.length){
                     terrain_name = map_config.terrain_configs[terrain_id].name.toLowerCase();
                 }
-                terrains[ROWS - y - 1][x] = terrainImages[terrain_name];
+                const row = ROWS - y - 1;
+                const col = x;
+                terrains[row][col] = terrainImages[terrain_name];
 
                 if (is_traversable) {
-                    gameState[ROWS - y - 1][x] = elements.traversable;
+                    gameState[row][col] = elements.traversable;
+                    resourceCells[row][col] = null;
                 } else {
                     if (Array.isArray(resources)) {
                         var highestId = -1;
-                        resources.forEach(resource => {
+                        const mineableResources = resources.filter(resource => isMineableResource(resource.id) && Number(resource.amount || 0) > 0);
+                        mineableResources.forEach(resource => {
                             if (resource.id > highestId) {
                                 highestId = resource.id;
                             }
                         })
-
-/*                        switch (highestId) {
-                            case 0:
-                                gameState[ROWS - y - 1][x] = elements.granite;
-                                break;
-                            case 1:
-                                gameState[ROWS - y - 1][x] = elements.vibranium;
-                                break;
-                            case 2:
-                                gameState[ROWS - y - 1][x] = elements.adamantite;
-                                break;
-                            case 3:
-                                gameState[ROWS - y - 1][x] = elements.unobtanium;
-                                break;
-                            default:
-                                gameState[ROWS - y - 1][x] = elements.resource;
-                                break;
-                        }*/
-                        // we have to use map_config because the resources is shadowed here
-                        if(map_config.resource_configs[highestId] !== undefined){
-                            gameState[ROWS - y - 1][x] = elements[map_config.resource_configs[highestId].name.toLowerCase()];
+                        let cleanName = assetManager.resources[highestId];
+                        if(cleanName !== undefined && elements[cleanName] !== undefined){
+                            gameState[row][col] = elements[cleanName];
+                            resourceCells[row][col] = {
+                                element: elements[cleanName],
+                                primary: mineableResources.find(resource => resource.id === highestId),
+                                resources: mineableResources
+                            };
                         } else {
-                            gameState[ROWS - y - 1][x] = elements.resource;
+                            gameState[row][col] = elements.traversable;
+                            resourceCells[row][col] = null;
                         }
                     }
                 }
@@ -641,28 +950,103 @@ function drawGame(hostname, port) {
 
             function renderBots() {
                 for (const [id, [position, variant, current_energy, job, cargo, playerIndex]] of botMap.entries()) {
-                    var playerNum = '';
-                    var element = String(variant) + playerNum;
-                    //create a mapping from bot variant and player index to gameState element
-                    // e.g. kMiningBot and playerIndex 0 -> 500
-                    // e.g. kFactoryBot and playerIndex 1 -> 503
-                    gameState[ROWS - position.y - 1][position.x] = BOT_START_IDX + playerIndex * 2 + (variant === 'kFactoryBot' ? 1 : 0);
+                    let variantIdx = botVariants.indexOf(variant);
+                    if (variantIdx === -1) variantIdx = 0; // Fallback
+                    gameState[ROWS - position.y - 1][position.x] = BOT_START_IDX + playerIndex * botVariants.length + variantIdx;
                 }
             }
+
+            function energyFillClass(energyPct) {
+                if (energyPct <= 25) return 'energy-fill-low';
+                if (energyPct <= 55) return 'energy-fill-mid';
+                return 'energy-fill-high';
+            }
+
+            function createEnergyBar(currentEnergy) {
+                const maxEnergy = Math.max(Number(map_config.max_bot_energy) || 0, currentEnergy, 1);
+                const energyPct = Math.max(0, Math.min(100, (currentEnergy / maxEnergy) * 100));
+                const energyWrap = document.createElement('div');
+                energyWrap.classList.add('energy-meter');
+                energyWrap.setAttribute('title', `Energy ${currentEnergy}/${maxEnergy}`);
+                energyWrap.setAttribute('aria-label', `Energy ${currentEnergy} of ${maxEnergy}`);
+
+                const energyFill = document.createElement('div');
+                energyFill.classList.add('energy-fill', energyFillClass(energyPct));
+                energyFill.style.width = `${energyPct}%`;
+                energyWrap.appendChild(energyFill);
+
+                const energyText = document.createElement('span');
+                energyText.classList.add('energy-label');
+                energyText.textContent = `${currentEnergy}/${maxEnergy}`;
+                energyWrap.appendChild(energyText);
+
+                return energyWrap;
+            }
+
+            function createCargoBar(cargo, variant) {
+                const currentLoad = cargoLoad(cargo);
+                const capacity = variantCapacity(variant);
+                const cargoWrap = document.createElement('div');
+                cargoWrap.classList.add('cargo-meter');
+                cargoWrap.setAttribute('title', capacity > 0 ? `Cargo ${currentLoad}/${capacity}` : `Cargo ${currentLoad}`);
+                cargoWrap.setAttribute('aria-label', capacity > 0 ? `Cargo ${currentLoad} of ${capacity}` : `Cargo ${currentLoad}`);
+
+                const fill = document.createElement('div');
+                fill.classList.add('cargo-fill');
+                fill.style.width = capacity > 0 ? `${Math.max(0, Math.min(100, (currentLoad / capacity) * 100))}%` : '0%';
+                cargoWrap.appendChild(fill);
+
+                const label = document.createElement('span');
+                label.classList.add('cargo-label');
+                label.textContent = capacity > 0 ? `${currentLoad}/${capacity}` : `${currentLoad}`;
+                cargoWrap.appendChild(label);
+
+                return cargoWrap;
+            }
+
+            function appendCargoChips(parent, cargo) {
+                const cargoContainer = document.createElement('div');
+                cargoContainer.classList.add('cargo-grid');
+
+                if (!cargo || cargo.length === 0) {
+                    const empty = document.createElement('span');
+                    empty.classList.add('cargo-empty');
+                    empty.textContent = 'No cargo';
+                    cargoContainer.appendChild(empty);
+                    parent.appendChild(cargoContainer);
+                    return;
+                }
+
+                cargo.forEach(item => {
+                    let { itemName, itemImageSrc } = assetManager.getItemInfo(item);
+                    const chip = document.createElement('span');
+                    chip.classList.add('cargo-chip');
+
+                    let mineralImage = document.createElement('img');
+                    mineralImage.alt = mineralImage.title = itemName;
+                    mineralImage.src = itemImageSrc;
+                    mineralImage.classList.add('cargo-icon');
+                    mineralImage.width = 16;
+                    mineralImage.height = 16;
+                    chip.appendChild(mineralImage);
+
+                    let mineralAmt = document.createElement('span');
+                    mineralAmt.textContent = item.amount;
+                    chip.appendChild(mineralAmt);
+
+                    cargoContainer.appendChild(chip);
+                });
+
+                parent.appendChild(cargoContainer);
+            }
+
             //shows a row for each player showing each bot and their data
             async function updateUI(player_id) {
                 const playerIndex = ensurePlayer(player_id);
 
-                console.log('Players object:', players);
-                console.log('Current player ID:', player_id);
-
-
                 await ensurePlayerName(player_id);
 
-                console.log('playerIndex:', playerIndex);
-
                 const sidebar = sidebars[playerIndex];
-                console.log('sidebar:', sidebar);
 
                 const color = colors[playerIndex];
 
@@ -675,10 +1059,6 @@ function drawGame(hostname, port) {
                 const playerName = document.createElement('h4');
                 playerName.textContent = getPlayerLabel(player_id);
                 header.appendChild(playerName);
-
-                const playerIdText = document.createElement('span');
-                playerIdText.textContent = `ID ${player_id}`;
-                header.appendChild(playerIdText);
                 sidebar.appendChild(header);
 
                 appendWinProgress(sidebar, playerIndex);
@@ -688,40 +1068,31 @@ function drawGame(hostname, port) {
                 sidebar.appendChild(botBox);
                 for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of botMap.entries()) {
                     if (playerIndex == botPlayerIndex) { //THIS MIGHT NOT WORK
-                        const botDiv = document.createElement('div');
-                        console.log('cargo: ', cargo);
+                        const botDiv = document.createElement('button');
                         botDiv.classList.add('bot-info');
+                        botDiv.type = 'button';
+                        botDiv.dataset.botId = id;
+                        botDiv.title = `Focus bot #${id}`;
+                        botDiv.setAttribute('aria-label', `Focus ${NameMaps.mapName("variantMap", variant)} bot ${id} at ${position.x}, ${position.y}`);
+                        botDiv.addEventListener('click', () => focusMapOnPosition(position));
+                        const botImage = assetManager.getBotImage(variant, job, cargo) || assetManager.images.unknown;
+                        const variantName = NameMaps.mapName("variantMap", variant);
+                        const jobName = NameMaps.mapName("actionMap", job.action);
                         botDiv.innerHTML = `
-                <h4 style="margin: 2px 0; padding: 0;"><b>${NameMaps.mapName("variantMap", variant)}</b> ${id}</h4>
-                <hr style="margin: 2px 0;">
-                <p style="margin: 2px 0; padding: 0;"><b>Position:</b> ${position.x}, ${position.y}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Energy:</b> ${current_energy}</p>
-                <p style="margin: 2px 0; padding: 0;"><b>Job:</b> ${NameMaps.mapName("actionMap", job.action)}</p>
-                <hr style="margin: 2px 0;">
+                <div class="bot-card-header">
+                    <img class="bot-sidebar-icon" src="${botImage.src || './assets/unknown.jpg'}" alt="${escapeHTML(variantName)}" width="28" height="28">
+                    <div class="bot-title-group">
+                        <h4 class="bot-title">${escapeHTML(variantName)}</h4>
+                    </div>
+                </div>
+                <div class="bot-meta-row">
+                    <span>${position.x}, ${position.y}</span>
+                    <span>${escapeHTML(jobName)}</span>
+                </div>
             `;
-// , ${job.status}
-                        const cargoContainer = document.createElement('div');
-
-                        //Creating a grid: left side will be image of mineral, right side will be count of mineral
-                        cargoContainer.style = "display: grid; grid-template-columns: auto auto; grid-gap: 0.05vw; padding: 0.1vw"
-
-                        // Add each cargo item as a new paragraph
-                        cargo.forEach(item => {
-                            //Image of the mineral
-                            let mineralImage = document.createElement('img')
-                            mineralImage.alt=mineralImage.title=map_config.resource_configs[item.id].name;
-                            mineralImage.src = "./assets/" + String(resources[item.id]) + ".png"
-                            mineralImage.style = "width: 1vw; height: 1vw"
-                            cargoContainer.appendChild(mineralImage);
-
-                            //Text describing how much of the mineral there is
-                            let mineralAmt = document.createElement('p')
-                            mineralAmt.innerHTML = `${item.amount}`
-                            cargoContainer.appendChild(mineralAmt)
-                        });
-
-                        // Append the cargo container to the botDiv
-                        botDiv.appendChild(cargoContainer);
+                        botDiv.appendChild(createEnergyBar(current_energy));
+                        botDiv.appendChild(createCargoBar(cargo, variant));
+                        appendCargoChips(botDiv, cargo);
 
                         // Append the botDiv to the sidebar
                         botBox.appendChild(botDiv);

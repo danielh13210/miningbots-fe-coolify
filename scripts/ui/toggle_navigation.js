@@ -1,36 +1,45 @@
-let navigation_link_;
-let dropdownMenu_;
-let navigation_dropdown_;
+let navigationLink = document.getElementById('serverMenuButton');
+let serverMenu = document.querySelector('.server-menu[aria-labelledby="serverMenuButton"]');
+let navToggle = document.querySelector('.app-nav-toggle');
 
-navigation_link_=document.getElementById('navbarDropdownMenuLink');
-dropdownMenu_=document.getElementById('dropdown-menu');
-navigation_dropdown_ = bootstrap.Dropdown.getOrCreateInstance(navigation_link_);
-
-let NavigationManager={
-  toggleNavigation: function () {
-    setTimeout(()=>{navigation_dropdown_.toggle()}, 0);
-  },
-  isNavigationExpanded:function(){
-    return navigation_link_.classList.contains('show');
-  },
-  hideNavigation: function () {
-    navigation_dropdown_.hide();
-  },
-  showNavigation: function () {
-    navigation_dropdown_.show();
-  }
+function setMenuExpanded(expanded) {
+  navigationLink?.setAttribute('aria-expanded', String(expanded));
+  navToggle?.setAttribute('aria-expanded', String(expanded));
+  serverMenu?.classList.toggle('hidden', !expanded);
 }
 
-window.NavigationManager=NavigationManager;
-export default NavigationManager;
+let NavigationManager = {
+  toggleNavigation: function () {
+    setMenuExpanded(!this.isNavigationExpanded());
+  },
+  isNavigationExpanded: function () {
+    return navigationLink?.getAttribute('aria-expanded') === 'true';
+  },
+  hideNavigation: function () {
+    setMenuExpanded(false);
+  },
+  showNavigation: function () {
+    setMenuExpanded(true);
+  }
+};
 
-window.matchMedia("(max-width: 992px)").addEventListener('change', e => {
-  if (!e.matches) { // switched to desktop mode
-    dropdownMenu_.style.marginTop = ""; // reset margin
-    dropdownMenu_.style.marginLeft = "";
-  } else {
-    let toggler=document.querySelector(".navbar-toggler").getBoundingClientRect();
-    dropdownMenu_.style.marginTop = toggler.height/2+"px";
-    dropdownMenu_.style.marginLeft = "-"+toggler.width+"px";
+document.addEventListener('click', (event) => {
+  if (!serverMenu || !navigationLink) return;
+  if (serverMenu.contains(event.target) || navigationLink.contains(event.target)) return;
+  NavigationManager.hideNavigation();
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    NavigationManager.hideNavigation();
   }
 });
+
+navigationLink?.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  NavigationManager.toggleNavigation();
+});
+
+window.NavigationManager = NavigationManager;
+export default NavigationManager;

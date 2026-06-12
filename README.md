@@ -36,6 +36,7 @@ p1.bootcamp.tk.sg {
 }
 ```
 
+
 ## Query parameters
 
 The following query parameters are to be used with this web application to connect to a server
@@ -43,3 +44,6 @@ The following query parameters are to be used with this web application to conne
 + ```url```: url of the server (*Required*)
 + ```observer_key```: Observer key (*Required*)
 + ```instance_name```: Replace the hostname in the title with the instance name
+
+*Icons from Font Awesome Free v7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.*
+>>>>>>> upstream/main
