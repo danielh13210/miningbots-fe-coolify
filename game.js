@@ -67,6 +67,10 @@ var servers = in_private_scope(()=>{
         name: "Competition",
         url: `trainers.tnkr.be:35010`,
     },
+    "current.invalid": {
+        name: "Front-end Host",
+        type: "fe_host"
+    },
     "localhost": {
         name: "localhost",
         url: `localhost:${lport}`,
