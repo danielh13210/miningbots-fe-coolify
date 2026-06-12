@@ -48,7 +48,8 @@
     @apply h-[30px];
   }
 
-  a[role="button"] {
+  button,
+  [role="button"] {
     @apply cursor-pointer text-black no-underline;
   }
 
@@ -56,15 +57,18 @@
     @apply h-5 w-5;
   }
 
-  body.dark-mode a[role="button"] svg {
+  body.dark-mode [role="button"] svg,
+  body.dark-mode button svg {
     @apply text-white;
   }
 
-  a[role="button"] svg:hover {
+  [role="button"] svg:hover,
+  button svg:hover {
     @apply !text-neutral-400;
   }
 
-  a[role="button"] svg:active {
+  [role="button"] svg:active,
+  button svg:active {
     @apply !text-neutral-500;
   }
 }
@@ -145,7 +149,7 @@
   }
 
   .icon-button {
-    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-slate-200 bg-white;
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-slate-200 bg-white p-0;
   }
 
   .icon-button svg,
@@ -528,6 +532,10 @@
   .setting-value,
   .settings-right-box {
     @apply my-auto;
+  }
+
+  .setting-value-forced {
+    @apply cursor-not-allowed;
   }
 
   input.setting-value::-webkit-outer-spin-button,

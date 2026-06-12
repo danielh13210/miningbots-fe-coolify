@@ -217,8 +217,12 @@ function populateServerMenu() {
     let serverMenu = document.querySelector(".server-menu");
     Object.keys(servers).forEach(function (key) {
         let server = servers[key];
-        let menuItem = `<a class="server-menu-item" href="#" data-url="${key}">${server.name}</a>`;
-        serverMenu.innerHTML += menuItem;
+        let menuItem = document.createElement("a");
+        menuItem.classList.add("server-menu-item");
+        menuItem.href = "#";
+        menuItem.dataset.url = key;
+        menuItem.textContent = server.name;
+        serverMenu.appendChild(menuItem);
     });
 }
 
@@ -760,16 +764,7 @@ function drawGame(hostname, port) {
                         const megacontainer = document.getElementById('player-sidebar-list');
                         while (sidebars.length < game.current_players) {
                             const idx = sidebars.length;
-                            const sidebar = document.createElement('div');
-                            sidebar.classList.add('sidebar');
-                            sidebar.id = 'bot-sidebar-' + (idx + 1);
-                            sidebar.innerHTML = `
-                                <div class="player-summary">
-                                    <div class="player-header">
-                                        <h4>Player ${idx + 1}</h4>
-                                        <span>Waiting for updates...</span>
-                                    </div>
-                                </div>`;
+                            const sidebar = createPlayerSidebar(idx, 'Waiting for updates...');
                             megacontainer.appendChild(sidebar);
                             sidebars.push(sidebar);
                         }
@@ -831,15 +826,43 @@ function drawGame(hostname, port) {
             //Possibly add more colours for >2 players too
             const colors = ['rgba(0,100,255,0.35)', 'rgba(220,50,50,0.35)', 'rgba(0,190,0,0.35)', 'rgba(220,200,0,0.35)', 'rgba(170,0,230,0.35)', 'rgba(230,130,0,0.35)', 'rgba(230,80,160,0.35)'];
 
+            function createPlayerSummary(name, color, statusText) {
+                const playerSummary = document.createElement('div');
+                playerSummary.classList.add('player-summary');
+
+                const header = document.createElement('div');
+                header.classList.add('player-header');
+                if (color) header.style.color = color;
+
+                const playerName = document.createElement('h4');
+                playerName.textContent = name;
+                header.appendChild(playerName);
+
+                if (statusText) {
+                    const status = document.createElement('span');
+                    status.textContent = statusText;
+                    header.appendChild(status);
+                }
+
+                playerSummary.appendChild(header);
+                return playerSummary;
+            }
+
+            function createPlayerSidebar(playerIndex, statusText) {
+                const sidebar = document.createElement('div');
+                sidebar.classList.add('sidebar');
+                sidebar.id = 'bot-sidebar-' + (playerIndex + 1);
+                sidebar.appendChild(createPlayerSummary(`Player ${playerIndex + 1}`, null, statusText));
+                return sidebar;
+            }
+
             function ensurePlayer(playerId) {
                 if (!players.hasOwnProperty(playerId)) {
                     const playerIndex = Object.keys(players).length;
                     players[playerId] = playerIndex;
                     if (playerIndex >= sidebars.length) {
                         // No pre-created placeholder available, create one now
-                        const sidebar = document.createElement('div');
-                        sidebar.classList.add('sidebar');
-                        sidebar.id = 'bot-sidebar-' + (playerIndex + 1);
+                        const sidebar = createPlayerSidebar(playerIndex);
                         document.getElementById('player-sidebar-list').appendChild(sidebar);
                         sidebars.push(sidebar);
                     }
@@ -1308,6 +1331,55 @@ function drawGame(hostname, port) {
                 parent.appendChild(cargoContainer);
             }
 
+            function createBotCard(id, position, variant, currentEnergy, job, cargo) {
+                const botDiv = document.createElement('button');
+                botDiv.classList.add('bot-info');
+                botDiv.type = 'button';
+                botDiv.dataset.botId = id;
+                botDiv.title = `Focus bot #${id}`;
+
+                const variantName = NameMaps.mapName("variantMap", variant);
+                const jobName = NameMaps.mapName("actionMap", job.action);
+                botDiv.setAttribute('aria-label', `Focus ${variantName} bot ${id} at ${position.x}, ${position.y}`);
+                botDiv.addEventListener('click', () => focusMapOnPosition(position));
+
+                const cardHeader = document.createElement('div');
+                cardHeader.classList.add('bot-card-header');
+
+                const botImage = assetManager.getBotImage(variant, job, cargo) || assetManager.images.unknown;
+                const image = document.createElement('img');
+                image.classList.add('bot-sidebar-icon');
+                image.src = botImage.src || './assets/unknown.jpg';
+                image.alt = variantName;
+                image.width = 28;
+                image.height = 28;
+                cardHeader.appendChild(image);
+
+                const titleGroup = document.createElement('div');
+                titleGroup.classList.add('bot-title-group');
+                const title = document.createElement('h4');
+                title.classList.add('bot-title');
+                title.textContent = variantName;
+                titleGroup.appendChild(title);
+                cardHeader.appendChild(titleGroup);
+                botDiv.appendChild(cardHeader);
+
+                const metaRow = document.createElement('div');
+                metaRow.classList.add('bot-meta-row');
+                const positionText = document.createElement('span');
+                positionText.textContent = `${position.x}, ${position.y}`;
+                const jobText = document.createElement('span');
+                jobText.textContent = jobName;
+                metaRow.append(positionText, jobText);
+                botDiv.appendChild(metaRow);
+
+                botDiv.appendChild(createEnergyBar(currentEnergy));
+                botDiv.appendChild(createCargoBar(cargo, variant));
+                appendCargoChips(botDiv, cargo);
+
+                return botDiv;
+            }
+
             //shows a row for each player showing each bot and their data
             async function updateUI(player_id) {
                 const playerIndex = ensurePlayer(player_id);
@@ -1318,20 +1390,9 @@ function drawGame(hostname, port) {
 
                 const color = colors[playerIndex];
 
-                sidebar.innerHTML = ''; // Clear the existing sidebar content
+                sidebar.replaceChildren();
 
-                const playerSummary = document.createElement('div');
-                playerSummary.classList.add('player-summary');
-
-                const header = document.createElement('div');
-                header.classList.add('player-header');
-                header.style.color = color;
-
-                const playerName = document.createElement('h4');
-                playerName.textContent = getPlayerLabel(player_id);
-                header.appendChild(playerName);
-
-                playerSummary.appendChild(header);
+                const playerSummary = createPlayerSummary(getPlayerLabel(player_id), color);
                 appendWinProgress(playerSummary, playerIndex);
                 sidebar.appendChild(playerSummary);
 
@@ -1340,34 +1401,7 @@ function drawGame(hostname, port) {
                 sidebar.appendChild(botBox);
                 for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of botMap.entries()) {
                     if (playerIndex == botPlayerIndex) { //THIS MIGHT NOT WORK
-                        const botDiv = document.createElement('button');
-                        botDiv.classList.add('bot-info');
-                        botDiv.type = 'button';
-                        botDiv.dataset.botId = id;
-                        botDiv.title = `Focus bot #${id}`;
-                        botDiv.setAttribute('aria-label', `Focus ${NameMaps.mapName("variantMap", variant)} bot ${id} at ${position.x}, ${position.y}`);
-                        botDiv.addEventListener('click', () => focusMapOnPosition(position));
-                        const botImage = assetManager.getBotImage(variant, job, cargo) || assetManager.images.unknown;
-                        const variantName = NameMaps.mapName("variantMap", variant);
-                        const jobName = NameMaps.mapName("actionMap", job.action);
-                        botDiv.innerHTML = `
-                <div class="bot-card-header">
-                    <img class="bot-sidebar-icon" src="${botImage.src || './assets/unknown.jpg'}" alt="${escapeHTML(variantName)}" width="28" height="28">
-                    <div class="bot-title-group">
-                        <h4 class="bot-title">${escapeHTML(variantName)}</h4>
-                    </div>
-                </div>
-                <div class="bot-meta-row">
-                    <span>${position.x}, ${position.y}</span>
-                    <span>${escapeHTML(jobName)}</span>
-                </div>
-            `;
-                        botDiv.appendChild(createEnergyBar(current_energy));
-                        botDiv.appendChild(createCargoBar(cargo, variant));
-                        appendCargoChips(botDiv, cargo);
-
-                        // Append the botDiv to the sidebar
-                        botBox.appendChild(botDiv);
+                        botBox.appendChild(createBotCard(id, position, variant, current_energy, job, cargo));
                     }
                 }
             }
