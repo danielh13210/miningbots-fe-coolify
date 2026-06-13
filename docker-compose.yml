@@ -3,8 +3,6 @@ services:
     image: miningbots-frontend-server
     build: .
     container_name: miningbots-frontend-server
-    ports:
-      - "80:80"
     networks:
       - miningbots-frontend
 
