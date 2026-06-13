@@ -11,9 +11,9 @@ let LoadingBox = {
 document.head.insertAdjacentHTML("beforeend", `
 <link rel="stylesheet" href="/styles/tailwind.css" type="text/css" />
 `);
-let LB_OBJECT_=document.createElement("div");
+let LB_OBJECT_=document.createElement("span");
 LB_OBJECT_.id="loadingbox";
-document.body.appendChild(LB_OBJECT_);
+document.querySelector(".sidebar-chrome").appendChild(LB_OBJECT_);
 LoadingBox.setStatus=function(status) {
     switch (status) {
         case LoadingBox.Status.LOADING_COMPLETED:

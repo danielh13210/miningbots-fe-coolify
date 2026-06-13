@@ -384,7 +384,7 @@
   }
 
   #loadingbox {
-    @apply flex h-6 w-screen items-center justify-center;
+    @apply flex h-6 w-full items-center justify-center;
   }
 
   .loading-completed {
