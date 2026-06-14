@@ -26,6 +26,10 @@ const GameUnvailableError = class extends Error {
     }
 }
 
+let reconnectPollTimeoutId = null;
+let reconnectPollInProgress = false;
+let activeDrawSessionId = 0;
+
 let http_type,ws_type;
 function set_protocols(upgrade_connection){
     if (CONFIG_["require_security"] || upgrade_connection) {
@@ -312,16 +316,30 @@ function renderGameStatus(game, mapConfig, hasObservedTick = false) {
     }
 }
 
-async function refreshGameStatus(matchGameId, mapConfig, hasObservedTick = false) {
+function selectActiveGame(games, currentGameId = null) {
+    if (!Array.isArray(games) || games.length === 0) return null;
+    const candidates = games.filter(game => game.game_status !== 'kEnded');
+    if (currentGameId !== null) {
+        const replacement = candidates.find(game => game.game_id !== currentGameId);
+        if (replacement) return replacement;
+    }
+    return candidates[0] || games[0];
+}
+
+async function fetchGames() {
     const response = await fetch(`${http_type}://${hostname}:${port}/games`, { method: 'GET' });
     if (!response.ok) throw new Error(response.statusText);
-    const games = await response.json();
+    return response.json();
+}
+
+async function refreshGameStatus(matchGameId, mapConfig, hasObservedTick = false) {
+    const games = await fetchGames();
     const game = games.find(g => g.game_id === matchGameId);
     if (game) renderGameStatus(game, mapConfig, hasObservedTick);
     return game;
 }
 
-function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGame) {
+function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGame, onStaleGame) {
     const BASE_INTERVAL = 3000;
     const MAX_INTERVAL = 30000;
     let interval = BASE_INTERVAL;
@@ -330,6 +348,10 @@ function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGa
     const poll = async () => {
         try {
             const game = await refreshGameStatus(matchGameId, mapConfig, getHasObservedTick());
+            if (!game || game.game_status === 'kEnded') {
+                if (typeof onStaleGame === 'function') onStaleGame('status-poll');
+                return;
+            }
             if (game && typeof onGame === 'function') onGame(game);
             interval = BASE_INTERVAL;
         } catch (error) {
@@ -339,11 +361,36 @@ function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGa
         timeoutId = setTimeout(poll, interval);
     };
 
-    poll();
+    timeoutId = setTimeout(poll, 0);
     return { stop: () => clearTimeout(timeoutId) };
 }
 
+function pollForReplacementGame(currentGameId, reason) {
+    if (reconnectPollInProgress) return;
+    reconnectPollInProgress = true;
+    if (reconnectPollTimeoutId) clearTimeout(reconnectPollTimeoutId);
+
+    const poll = async () => {
+        try {
+            const games = await fetchGames();
+            const replacement = selectActiveGame(games, currentGameId);
+            if (replacement && replacement.game_id !== currentGameId && replacement.game_status !== 'kEnded') {
+                console.log(`Found replacement game ${replacement.game_id} after ${reason}; reloading observer.`);
+                window.location.reload();
+                return;
+            }
+        } catch (error) {
+            console.warn(`Waiting for replacement game after ${reason}:`, error.message);
+        }
+        reconnectPollTimeoutId = setTimeout(poll, 3000);
+    };
+
+    LoadingBox.setStatus(LoadingBox.Status.LOADING);
+    poll();
+}
+
 function drawGame(hostname, port) {
+    const drawSessionId = ++activeDrawSessionId;
     const canvas = document.getElementById("gameCanvas");
     const mapViewport = document.getElementById("map-viewport");
     const mapStage = document.getElementById("map-canvas-stage");
@@ -358,21 +405,13 @@ function drawGame(hostname, port) {
     let terrainImages={};
 
     //Likely connecting to the server and retrieving initial game state
-    fetch(`${http_type}://${hostname}:${port}/games`, {
-        method: 'GET'
-    })
-        .then(response => {
-            // console.log(response);
-            if (response.ok) {
-                // console.log('games:', response);
-                return response.json();
-            } else {
-                throw new Error(response.statusText);
-            }
-        })
+    fetchGames()
         .then(games => {
             console.log('games:', games);
-            let selectedGame = games[0];
+            let selectedGame = selectActiveGame(games);
+            if (!selectedGame) {
+                throw new GameUnvailableError('No games available');
+            }
             let gameId = selectedGame.game_id;
             let gameStatus = selectedGame.game_status;
             renderGameStatus(selectedGame);
@@ -405,11 +444,15 @@ function drawGame(hostname, port) {
             let selectedGameInfo = result.game;
             let hasObservedTick = false;
             renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
-            startGameStatusPolling(
+            const statusPolling = startGameStatusPolling(
                 matchGameId,
                 map_config,
                 () => hasObservedTick,
-                game => { selectedGameInfo = game; }
+                game => { selectedGameInfo = game; },
+                reason => {
+                    statusPolling.stop();
+                    pollForReplacementGame(matchGameId, reason);
+                }
             );
             console.log('map_config:', map_config);
             // rendring information
@@ -750,6 +793,10 @@ function drawGame(hostname, port) {
             const ws = new WebSocket(`${ws_type}://${hostname}:${port}/observer`);
 
             ws.onopen = function () {
+                if (drawSessionId !== activeDrawSessionId) {
+                    ws.close();
+                    return;
+                }
                 console.log('Connected to WebSocket server');
                 const subscribeRequest = JSON.stringify({ game_id: matchGameId, observer_key: CONFIG_.observer_key, observer_name: 'Observer' });
                 ws.send(subscribeRequest);
@@ -774,6 +821,7 @@ function drawGame(hostname, port) {
 
             //When receiving message from the server, parses it and applies updates to game accordingly
             ws.onmessage = function (msg) {
+                if (drawSessionId !== activeDrawSessionId) return;
                 try {
                     function parse_callback(json_string){
                         const data = JSON.parse(json_string);
@@ -802,9 +850,13 @@ function drawGame(hostname, port) {
                             case 'kEndInWin':
                                 console.log(`game ended player id ${data.player_id} won`);
                                 showWinner(data.player_id);
+                                statusPolling.stop();
+                                pollForReplacementGame(matchGameId, 'game-ended');
                                 break;
                             case 'kEndInDraw':
                                 console.log('game ended in draw');
+                                statusPolling.stop();
+                                pollForReplacementGame(matchGameId, 'game-ended');
                                 break;
                             default:
                                 console.log('Unhandled update_type:', data.update_type);
@@ -820,6 +872,17 @@ function drawGame(hostname, port) {
                     console.error('Error parsing message:', error);
                 }
             }
+
+            ws.onclose = function () {
+                if (drawSessionId !== activeDrawSessionId) return;
+                console.log('Observer websocket closed; checking for replacement game.');
+                statusPolling.stop();
+                pollForReplacementGame(matchGameId, 'websocket-close');
+            };
+
+            ws.onerror = function (error) {
+                console.warn('Observer websocket error:', error);
+            };
 
             //Sidebars has to be dynamically added if in the future you want >2 players
             const sidebars = Array.from(document.querySelectorAll('div[id^="bot-sidebar-"]'));
