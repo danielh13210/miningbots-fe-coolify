@@ -11,7 +11,6 @@ console.log("script started");
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
 var hostname, port;
-// if (server !== null) hostname = server;
 
 const GameUnvailableError = class extends Error {
     constructor(message) {
