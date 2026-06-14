@@ -2,6 +2,7 @@
 .gitignore
 .dockerignore
 docker-compose.yml
+docker-compose.override.yml
 utilities
 webserver
 firefox-chrome
