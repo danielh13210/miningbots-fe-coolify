@@ -366,6 +366,10 @@ function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGa
 }
 
 function pollForReplacementGame(currentGameId, reason) {
+    if (!window.GameObserverControls?.isAutoRefreshEnabled?.()) {
+        console.log(`Game became stale after ${reason}; auto-connect is disabled.`);
+        return;
+    }
     if (reconnectPollInProgress) return;
     reconnectPollInProgress = true;
     if (reconnectPollTimeoutId) clearTimeout(reconnectPollTimeoutId);

@@ -22,6 +22,22 @@ function updateFullscreenButton() {
   fullscreenIcon.classList.toggle("fa-compress", isFullscreen);
 }
 
+function autoRefreshEnabled() {
+  return localStorage.getItem("miningbots.autoRefreshNextGame") === "true";
+}
+
+function updateAutoRefreshButton() {
+  const button = document.getElementById("auto-refresh-button");
+  if (!button) return;
+  const enabled = autoRefreshEnabled();
+  button.setAttribute("aria-pressed", String(enabled));
+  button.title = `${enabled ? "Disable" : "Enable"} auto-connect to next game (${KeyboardUtilities.joinMnemonic(false, "R")})`;
+}
+
+window.GameObserverControls = {
+  isAutoRefreshEnabled: autoRefreshEnabled,
+};
+
 document.getElementById("app-nav-toggle")?.addEventListener("click", (event) => {
   event.stopPropagation();
   window.NavigationManager?.toggleNavigation();
@@ -35,8 +51,15 @@ document.getElementById("settings-button")?.addEventListener("click", () => {
   SettingsManager.open_popup();
 });
 
+document.getElementById("auto-refresh-button")?.addEventListener("click", () => {
+  localStorage.setItem("miningbots.autoRefreshNextGame", String(!autoRefreshEnabled()));
+  updateAutoRefreshButton();
+});
+
 document.addEventListener("fullscreenchange", updateFullscreenButton);
 
 setMnemonic(document.getElementById("settings-button"), true, "C");
 setMnemonic(document.getElementById("fullscreen-button"), false, "F");
+setMnemonic(document.getElementById("auto-refresh-button"), false, "R");
+updateAutoRefreshButton();
 SettingsManager.initialize_main();
