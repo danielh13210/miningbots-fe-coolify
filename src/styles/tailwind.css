@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  html,
+  body {
+    @apply h-screen overflow-hidden;
+  }
+
   body {
     @apply m-0 bg-panel font-sans text-ink;
   }
@@ -43,7 +48,8 @@
     @apply h-[30px];
   }
 
-  a[role="button"] {
+  button,
+  [role="button"] {
     @apply cursor-pointer text-black no-underline;
   }
 
@@ -51,15 +57,18 @@
     @apply h-5 w-5;
   }
 
-  body.dark-mode a[role="button"] svg {
+  body.dark-mode [role="button"] svg,
+  body.dark-mode button svg {
     @apply text-white;
   }
 
-  a[role="button"] svg:hover {
+  [role="button"] svg:hover,
+  button svg:hover {
     @apply !text-neutral-400;
   }
 
-  a[role="button"] svg:active {
+  [role="button"] svg:active,
+  button svg:active {
     @apply !text-neutral-500;
   }
 }
@@ -94,7 +103,7 @@
   }
 
   #nav-peek-triggerbox:hover + .app-nav {
-    @apply !block;
+    @apply !flex;
   }
 
   .app-nav-toggle {
@@ -140,12 +149,47 @@
   }
 
   .icon-button {
-    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-slate-200 bg-white;
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-slate-200 bg-white p-0;
+  }
+
+  .icon-button[aria-pressed="true"] {
+    @apply border-sky-300 bg-sky-50 text-sky-700 ring-1 ring-sky-200;
   }
 
   .icon-button svg,
-  .icon-button svgfile {
+  .icon-button svgfile,
+  .fa-icon {
     @apply h-5 w-5 shrink-0;
+  }
+
+  .fa-icon {
+    @apply inline-block bg-current;
+    mask-position: center;
+    mask-repeat: no-repeat;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+  }
+
+  .fa-gear {
+    mask-image: url("/assets/ui/settings.svg");
+    -webkit-mask-image: url("/assets/ui/settings.svg");
+  }
+
+  .fa-refresh {
+    mask-image: url("/assets/ui/refresh.svg");
+    -webkit-mask-image: url("/assets/ui/refresh.svg");
+  }
+
+  .fa-expand {
+    mask-image: url("/assets/ui/fullscreen.svg");
+    -webkit-mask-image: url("/assets/ui/fullscreen.svg");
+  }
+
+  .fa-compress {
+    mask-image: url("/assets/ui/exit_fullscreen.svg");
+    -webkit-mask-image: url("/assets/ui/exit_fullscreen.svg");
   }
 
   body:fullscreen .competition-disabled:not(:hover):not(:focus-within) {
@@ -153,11 +197,23 @@
   }
 
   .game-status-panel {
-    @apply grid grid-cols-2 gap-px border-b border-slate-200 bg-slate-200 text-xs;
+    @apply flex flex-col gap-px border-b border-slate-200 bg-slate-200 text-xs;
+  }
+
+  .game-status-row {
+    @apply grid gap-px;
+  }
+
+  .game-status-row-primary {
+    @apply grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(11rem,14rem)];
+  }
+
+  .game-status-row-secondary {
+    @apply grid-cols-3;
   }
 
   .game-status-item {
-    @apply flex min-h-8 items-center justify-between gap-2 bg-white px-2.5 py-1;
+    @apply flex min-h-7 items-center justify-between gap-2 bg-white px-2 py-0.5;
   }
 
   .game-status-label {
@@ -166,6 +222,10 @@
 
   .game-status-value {
     @apply min-w-0 truncate text-right font-semibold text-slate-800;
+  }
+
+  .game-status-zoom {
+    @apply gap-1;
   }
 
   .status-pill {
@@ -209,8 +269,12 @@
     @apply block w-auto overflow-x-hidden overflow-y-visible border-b border-slate-300 bg-panel p-1 shadow-[-2px_0_5px_rgba(15,23,42,0.08)];
   }
 
+  .player-summary {
+    @apply mb-1 flex min-w-0 items-start gap-1;
+  }
+
   .player-header {
-    @apply mb-1 flex items-baseline gap-1.5 border-l-4 border-current pl-1.5;
+    @apply flex min-w-[7rem] max-w-[11rem] shrink-0 items-baseline gap-1.5 border-l-4 border-current pl-1.5;
   }
 
   .player-header h4 {
@@ -222,15 +286,15 @@
   }
 
   .win-progress {
-    @apply mb-1 rounded border border-slate-200 bg-white p-1;
+    @apply flex min-w-0 flex-1 items-center gap-1 rounded border border-slate-200 bg-white px-1 py-0.5;
   }
 
   .win-progress-heading {
-    @apply flex justify-between gap-2 text-[10px] font-bold text-slate-700;
+    @apply flex shrink-0 items-center text-[10px] font-bold text-slate-700;
   }
 
   .win-progress-bar {
-    @apply mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200;
+    @apply h-1.5 min-w-12 flex-1 overflow-hidden rounded-full bg-slate-200;
   }
 
   .win-progress-fill {
@@ -238,11 +302,11 @@
   }
 
   .win-quota-grid {
-    @apply mt-1 grid grid-cols-[repeat(auto-fit,minmax(3.75rem,1fr))] gap-1;
+    @apply flex shrink-0 flex-wrap justify-end gap-1;
   }
 
   .win-quota-row {
-    @apply flex items-center justify-between gap-1 rounded border border-slate-200 bg-slate-50 px-1 py-0.5 text-[10px] leading-none text-slate-600;
+    @apply inline-flex h-5 items-center justify-between gap-1 rounded border border-slate-200 bg-slate-50 px-1 text-[10px] leading-none text-slate-600;
   }
 
   .win-quota-row.complete {
@@ -287,7 +351,7 @@
   }
 
   .energy-meter {
-    @apply relative mt-1 h-2.5 overflow-hidden rounded border border-slate-300 bg-slate-100;
+    @apply relative mt-1 h-3 overflow-hidden rounded border border-slate-300 bg-slate-100;
   }
 
   .energy-fill {
@@ -307,7 +371,8 @@
   }
 
   .energy-label {
-    @apply absolute inset-0 flex items-center justify-center text-[8px] font-bold leading-none text-slate-900;
+    @apply absolute inset-0 flex items-center justify-center text-[8px] font-semibold leading-none text-slate-700/80;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
   }
 
   .bot-divider {
@@ -331,15 +396,16 @@
   }
 
   .cargo-meter {
-    @apply relative mt-1 h-2.5 overflow-hidden rounded border border-slate-300 bg-slate-100;
+    @apply relative mt-1 h-3 overflow-hidden rounded border border-slate-300 bg-slate-100;
   }
 
   .cargo-fill {
-    @apply h-full rounded-[inherit] bg-sky-500 transition-[width] duration-150;
+    @apply h-full rounded-[inherit] bg-green-500 transition-[width] duration-150;
   }
 
   .cargo-label {
-    @apply absolute inset-0 flex items-center justify-center text-[8px] font-bold leading-none text-slate-900;
+    @apply absolute inset-0 flex items-center justify-center text-[8px] font-semibold leading-none text-slate-700/80;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
   }
 
   .map-pane {
@@ -348,6 +414,11 @@
 
   .map-viewport {
     @apply h-screen w-[100vh] overflow-auto bg-slate-950;
+    scrollbar-width: none;
+  }
+
+  .map-viewport::-webkit-scrollbar {
+    display: none;
   }
 
   .map-canvas-stage {
@@ -360,15 +431,15 @@
   }
 
   .map-controls {
-    @apply grid grid-cols-[2.25rem_minmax(3.5rem,1fr)_2.25rem_3rem] gap-1 border-b border-slate-200 bg-white p-2;
+    @apply grid min-w-0 flex-1 grid-cols-[1.75rem_minmax(2.75rem,1fr)_1.75rem_2.5rem] gap-1 bg-white;
   }
 
   .map-control-button {
-    @apply flex h-8 items-center justify-center rounded border border-slate-300 bg-slate-50 px-2 text-xs font-bold text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 active:bg-slate-200;
+    @apply flex h-6 items-center justify-center rounded border border-slate-300 bg-slate-50 px-1 text-xs font-bold text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 active:bg-slate-200;
   }
 
   .map-zoom-label {
-    @apply flex h-8 items-center justify-center rounded border border-slate-200 bg-white text-xs font-bold text-slate-700;
+    @apply flex h-6 items-center justify-center rounded border border-slate-200 bg-white text-xs font-bold text-slate-700;
   }
 
   .map-tooltip {
@@ -470,6 +541,10 @@
   .setting-value,
   .settings-right-box {
     @apply my-auto;
+  }
+
+  .setting-value-forced {
+    @apply cursor-not-allowed;
   }
 
   input.setting-value::-webkit-outer-spin-button,

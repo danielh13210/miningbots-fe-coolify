@@ -53,14 +53,13 @@ SettingsManager.default_settings=object_map_values(SettingsManager.settings,(_ke
 
 function write_settings_(json_settings,complete_handler) {
     function finish_ui(){
-        document.getElementById("saving-cover-board").style.display="none";
+        document.getElementById("saving-cover-board").classList.add("hidden");
     }
-    document.getElementById("saving-cover-board").style.display="flex";
+    document.getElementById("saving-cover-board").classList.remove("hidden");
     setTimeout(()=>{
         let updated_settings=Object.assign(SettingsManager.read_settings_cookie(/*raw=*/true),json_settings);
         let cookie_value =JSON.stringify(updated_settings);
         localStorage.setItem("settings",cookie_value);
-        let dialog;
         finish_ui();
         complete_handler();
     },10);
@@ -92,7 +91,7 @@ function write_default_settings_(complete_handler) {
 
 SettingsManager.export_settings=function() {
     let json_settings=dump_settings_();
-    JSONDownloader.exportJSON(JSON.stringify(json_setings),"settings.json");
+    JSONDownloader.exportJSON(JSON.stringify(json_settings),"settings.json");
     alert("Settings exported to settings.json");
 }
 
@@ -176,7 +175,7 @@ function populate_settings_(){
         text_container.setAttribute('for',key+'_input');
         let title=document.createElement("span");
         title.classList.add("setting-text-name");
-        title.innerHTML=setting.title;
+        title.textContent=setting.title;
         text_container.appendChild(title);
         let description=document.createElement("p");
         description.classList.add("setting-text-description");
@@ -224,7 +223,7 @@ function populate_settings_(){
                 setting.range.forEach(option=>{
                     let option_element=document.createElement("option");
                     option_element.setAttribute("value",option.name);
-                    option_element.innerHTML=option.display;
+                    option_element.textContent=option.display;
                     input_element.appendChild(option_element);
                 });
                 break;
@@ -236,7 +235,7 @@ function populate_settings_(){
         input_element.classList.add("setting-value");
         input_element.disabled=value_forced;
         if(value_forced)input_element.title=setting.force_value.tooltip;
-        input_element.style.cursor=value_forced?"not-allowed":"default";
+        input_element.classList.toggle("setting-value-forced", value_forced);
         input_element.addEventListener('change',(e)=>{
             let property=setting.type=="boolean"?"checked":"value";
             let update={key:key,value:e.target[property]};
@@ -253,7 +252,7 @@ function update_reset_button_(setting_update){
     let show=setting_update.value!=SettingsManager.settings[setting_update.key].default; // true if the value is not equal to the default
     with_value(document.getElementById(setting_update.key+'_reset'),(reset_button)=>{
         if(reset_button)
-            reset_button.style.display=show?"block":"none";
+            reset_button.classList.toggle("hidden", !show);
     });
 }
 
