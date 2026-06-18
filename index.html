@@ -11,6 +11,7 @@
     crossorigin="anonymous"></script>
   <link href="/styles/tailwind.css" rel="stylesheet" />
   <link href="/styles/trades_panel.css" rel="stylesheet" />
+  <link href="/styles/sidebar.css" rel="stylesheet" />
   <script src="/scripts/ui/server_text.js"></script>
   <script src="/scripts/ui/main_page.js" type="module"></script>
 </head>
@@ -37,6 +38,9 @@
 
     <!--A DIV to hold all the player-bot info-->
     <div class="sidebar-container" id="bot-info-megacontainer">
+      <!--Drag handle: resize the player panel; double-click to reset.-->
+      <div class="sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical"
+        title="Drag to resize panel (double-click to reset)"></div>
       <div class="sidebar-chrome">
         <div id="nav-peek-triggerbox" aria-hidden="true"></div>
         <nav class="app-nav competition-disabled">

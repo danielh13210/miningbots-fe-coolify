@@ -8,6 +8,7 @@ import LoadingBox from './scripts/ui/loadingbox.js';
 import assetManager from './scripts/ui/asset_manager.js';
 import tradesPanel from './scripts/ui/trades_panel.js';
 import gameTimer from './scripts/ui/game_timer.js';
+import setupSidebarResizer from './scripts/ui/sidebar_resizer.js';
 
 console.log("script started");
 
@@ -179,6 +180,7 @@ function populateServerMenu() {
 document.addEventListener("DOMContentLoaded", function () {
     populateServerMenu();
     setupStartGameControl();
+    setupSidebarResizer();
 
     let serverMenuItems = document.querySelectorAll(".server-menu-item");
     serverMenuItems.forEach(function (item) {
