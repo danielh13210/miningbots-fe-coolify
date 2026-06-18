@@ -10,6 +10,7 @@
     integrity="sha384-KGmzmwrs7oAU2sG5qfETslFsscVcCaxQrX2d7PW7I9bTrsuTD/eSMFr9jaMS9i+b"
     crossorigin="anonymous"></script>
   <link href="/styles/tailwind.css" rel="stylesheet" />
+  <link href="/styles/trades_panel.css" rel="stylesheet" />
   <script src="/scripts/ui/server_text.js"></script>
   <script src="/scripts/ui/main_page.js" type="module"></script>
 </head>
@@ -19,6 +20,14 @@
   <div class="app-shell" id="game-info-container">
     <!--The drawing of the game-->
     <main class="map-pane" aria-label="game map">
+      <!--Live market-data view: latest trade per resource, populated from the /trades feed-->
+      <aside class="trades-panel hidden" id="trades-panel" aria-label="latest trades">
+        <div class="trades-panel-header">
+          <span class="trades-panel-title">Latest Trades</span>
+          <span class="trades-panel-subtitle">per resource</span>
+        </div>
+        <div id="trades-panel-list"></div>
+      </aside>
       <div class="map-viewport" id="map-viewport">
         <div class="map-canvas-stage" id="map-canvas-stage">
           <canvas id="gameCanvas" aria-label="game map view"></canvas>
@@ -96,6 +105,14 @@
               <span class="game-status-label">Players</span>
               <span class="game-status-value" id="status-players">-</span>
             </div>
+          </div>
+          <!--Observer-only control: starts a joinable (kNotStarted) game via POST /start_game-->
+          <div class="game-status-row game-status-row-actions hidden" id="start-game-row">
+            <button class="start-game-button" type="button" id="start-game-button"
+              title="Start this game (observer only)">
+              <span class="start-game-glyph" aria-hidden="true">&#9654;</span>
+              <span id="start-game-button-text">Start Game</span>
+            </button>
           </div>
         </section>
       </div>

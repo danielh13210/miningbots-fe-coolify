@@ -6,6 +6,7 @@ import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
 import LoadingBox from './scripts/ui/loadingbox.js';
 import assetManager from './scripts/ui/asset_manager.js';
+import tradesPanel from './scripts/ui/trades_panel.js';
 
 console.log("script started");
 
@@ -176,6 +177,7 @@ function populateServerMenu() {
 
 document.addEventListener("DOMContentLoaded", function () {
     populateServerMenu();
+    setupStartGameControl();
 
     let serverMenuItems = document.querySelectorAll(".server-menu-item");
     serverMenuItems.forEach(function (item) {
@@ -258,6 +260,13 @@ function renderGameStatus(game, mapConfig, hasObservedTick = false) {
         statusState.dataset.status = hasObservedTick ? 'kRunning' : (game.game_status || '');
         statusState.title = `Server status: ${formatServerStatus(game.game_status)}`;
     }
+
+    // A kNotStarted game is joinable but frozen; offer the observer-only start control.
+    if (!hasObservedTick && game.game_status === 'kNotStarted') {
+        showStartGameControl(game.game_id);
+    } else {
+        hideStartGameControl();
+    }
 }
 
 function selectActiveGame(games, currentGameId = null) {
@@ -281,6 +290,71 @@ async function refreshGameStatus(matchGameId, mapConfig, hasObservedTick = false
     const game = games.find(g => g.game_id === matchGameId);
     if (game) renderGameStatus(game, mapConfig, hasObservedTick);
     return game;
+}
+
+function showStartGameControl(gameId) {
+    const row = document.getElementById('start-game-row');
+    const button = document.getElementById('start-game-button');
+    if (!row || !button) return;
+    button.dataset.gameId = String(gameId);
+    button.disabled = false;
+    setText('start-game-button-text', 'Start Game');
+    row.classList.remove('hidden');
+}
+
+function hideStartGameControl() {
+    document.getElementById('start-game-row')?.classList.add('hidden');
+}
+
+// Observer-only POST /start_game. The whole request rides in a single
+// url-encoded `request` query param (same convention as /move, /join_game).
+// Success is the bare JSON string "kSuccess"; "already started" is treated as
+// success since the call is effectively idempotent.
+async function startGame(gameId) {
+    const request = encodeURIComponent(JSON.stringify({
+        game_id: gameId,
+        observer_key: CONFIG_.observer_key,
+    }));
+    const response = await fetch(`${http_type}://${hostname}:${port}/start_game?request=${request}`, { method: 'POST' });
+    let body;
+    try {
+        body = await response.json();
+    } catch (e) {
+        throw new Error('Unexpected response from server.');
+    }
+    if (body === 'kSuccess') return { ok: true };
+    if (body && body.error === 'kCannotStartGameAlreadyStarted') return { ok: true, alreadyStarted: true };
+    const message = (body && (body.error_message || body.error)) || 'Unknown error';
+    return { ok: false, error: body && body.error, message };
+}
+
+// Wired once on load; the active game id is stashed on the button's dataset by
+// renderGameStatus whenever the game is joinable-but-frozen (kNotStarted).
+function setupStartGameControl() {
+    const button = document.getElementById('start-game-button');
+    if (!button) return;
+    button.addEventListener('click', async () => {
+        const gameId = Number(button.dataset.gameId);
+        if (!Number.isFinite(gameId) || gameId === 0) return;
+        button.disabled = true;
+        setText('start-game-button-text', 'Starting…');
+        try {
+            const result = await startGame(gameId);
+            if (result.ok) {
+                // The observer feed / status poll will flip the UI to Running shortly.
+                setText('start-game-button-text', result.alreadyStarted ? 'Already started' : 'Started');
+                hideStartGameControl();
+            } else {
+                DialogUtilities.showDialog(`Could not start game: ${result.message}`, 'Start Game');
+                setText('start-game-button-text', 'Start Game');
+                button.disabled = false;
+            }
+        } catch (error) {
+            DialogUtilities.showDialog(`Could not start game: ${error.message}`, 'Start Game');
+            setText('start-game-button-text', 'Start Game');
+            button.disabled = false;
+        }
+    });
 }
 
 function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGame, onStaleGame) {
@@ -740,6 +814,10 @@ function drawGame(hostname, port) {
 
             const ws = new WebSocket(`${ws_type}://${hostname}:${port}/observer`);
 
+            // Live market-data view (top-left). Connects to the public /trades feed;
+            // a no-op against servers that don't have the trading pack enabled.
+            tradesPanel.connect(`${ws_type}://${hostname}:${port}/trades`, matchGameId, map_config.resource_configs);
+
             ws.onopen = function () {
                 if (drawSessionId !== activeDrawSessionId) {
                     ws.close();
@@ -825,6 +903,8 @@ function drawGame(hostname, port) {
                 if (drawSessionId !== activeDrawSessionId) return;
                 console.log('Observer websocket closed; checking for replacement game.');
                 statusPolling.stop();
+                tradesPanel.disconnect();
+                tradesPanel.hide();
                 pollForReplacementGame(matchGameId, 'websocket-close');
             };
 
