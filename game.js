@@ -7,6 +7,7 @@ import DialogUtilities from './scripts/ui/webdialog.js';
 import LoadingBox from './scripts/ui/loadingbox.js';
 import assetManager from './scripts/ui/asset_manager.js';
 import tradesPanel from './scripts/ui/trades_panel.js';
+import gameTimer from './scripts/ui/game_timer.js';
 
 console.log("script started");
 
@@ -413,6 +414,7 @@ function pollForReplacementGame(currentGameId, reason) {
 
 function drawGame(hostname, port) {
     const drawSessionId = ++activeDrawSessionId;
+    gameTimer.reset();
     const canvas = document.getElementById("gameCanvas");
     const mapViewport = document.getElementById("map-viewport");
     const mapStage = document.getElementById("map-canvas-stage");
@@ -853,6 +855,9 @@ function drawGame(hostname, port) {
                         const data = JSON.parse(json_string);
                         switch (data.update_type) {
                             case 'kTickUpdate':
+                                // The first tick means the game is actually live;
+                                // start the elapsed-time clock from here.
+                                if (!hasObservedTick) gameTimer.start();
                                 hasObservedTick = true;
                                 renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
                                 if (Array.isArray(data.bot_updates)) {
@@ -875,12 +880,14 @@ function drawGame(hostname, port) {
                                 break;
                             case 'kEndInWin':
                                 console.log(`game ended player id ${data.player_id} won`);
+                                gameTimer.stop();
                                 showWinner(data.player_id);
                                 statusPolling.stop();
                                 pollForReplacementGame(matchGameId, 'game-ended');
                                 break;
                             case 'kEndInDraw':
                                 console.log('game ended in draw');
+                                gameTimer.stop();
                                 statusPolling.stop();
                                 pollForReplacementGame(matchGameId, 'game-ended');
                                 break;

@@ -2,15 +2,26 @@
    Plain CSS (loaded after the Tailwind build) so it survives a
    `npm run build:css`, which only rewrites styles/tailwind.css. */
 
-/* Anchor the overlay to the map pane rather than the whole shell. */
+/* Stack the trades panel above the map in normal flow so it never covers the
+   top of the map. The map pane is a column: trades panel on top (fixed height),
+   map viewport fills the rest. When the panel is hidden the viewport gets the
+   full height back automatically. */
 .map-pane {
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The map viewport takes whatever vertical space is left under the trades
+   panel (overrides Tailwind's h-screen, which is loaded earlier). */
+.map-viewport {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
 }
 
 .trades-panel {
-  position: absolute;
-  top: 0;
-  left: 0;
+  flex: 0 0 auto;
   width: 100%;
   height: 20vh;
   z-index: 900;
@@ -23,6 +34,13 @@
   backdrop-filter: blur(2px);
   color: #e2e8f0;
   pointer-events: auto;
+}
+
+/* Higher specificity than the bare `.trades-panel { display: flex }` above so
+   the `hidden` class actually collapses the panel (and the map viewport gets
+   the full height back) — e.g. on servers without the trading pack. */
+.trades-panel.hidden {
+  display: none;
 }
 
 .trades-panel-header {
