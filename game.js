@@ -181,6 +181,7 @@ document.addEventListener("DOMContentLoaded", function () {
     populateServerMenu();
     setupStartGameControl();
     setupSidebarResizer();
+    setupBotRowWheelScroll();
 
     let serverMenuItems = document.querySelectorAll(".server-menu-item");
     serverMenuItems.forEach(function (item) {
@@ -358,6 +359,24 @@ function setupStartGameControl() {
             button.disabled = false;
         }
     });
+}
+
+// Each team's bots live on a single horizontal-scrolling row (.bot-box). A
+// horizontal-only strip doesn't react to the mouse wheel by default, so users
+// can't reach the off-screen bots. Delegate a wheel handler from the stable
+// list container (the per-team rows are rebuilt every tick) that turns a
+// vertical wheel into a horizontal scroll — but only while the row actually has
+// somewhere to go, so at the ends the wheel falls back to scrolling the list.
+function setupBotRowWheelScroll() {
+    const list = document.getElementById('player-sidebar-list');
+    if (!list) return;
+    list.addEventListener('wheel', (event) => {
+        const box = event.target.closest?.('.bot-box');
+        if (!box || box.scrollWidth <= box.clientWidth || event.deltaY === 0) return;
+        const before = box.scrollLeft;
+        box.scrollLeft += event.deltaY;
+        if (box.scrollLeft !== before) event.preventDefault();
+    }, { passive: false });
 }
 
 function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGame, onStaleGame) {
