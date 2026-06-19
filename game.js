@@ -1369,61 +1369,84 @@ function drawGame(hostname, port) {
             }
 
             function createEnergyBar(currentEnergy) {
-                const maxEnergy = Math.max(Number(map_config.max_bot_energy) || 0, currentEnergy, 1);
-                const energyPct = Math.max(0, Math.min(100, (currentEnergy / maxEnergy) * 100));
                 const energyWrap = document.createElement('div');
                 energyWrap.classList.add('energy-meter');
-                energyWrap.setAttribute('title', `Energy ${currentEnergy}/${maxEnergy}`);
-                energyWrap.setAttribute('aria-label', `Energy ${currentEnergy} of ${maxEnergy}`);
 
                 const energyFill = document.createElement('div');
-                energyFill.classList.add('energy-fill', energyFillClass(energyPct));
-                energyFill.style.width = `${energyPct}%`;
+                energyFill.classList.add('energy-fill');
                 energyWrap.appendChild(energyFill);
 
                 const energyText = document.createElement('span');
                 energyText.classList.add('energy-label');
-                energyText.textContent = `${currentEnergy}/${maxEnergy}`;
                 energyWrap.appendChild(energyText);
 
+                updateEnergyBar(energyWrap, currentEnergy);
                 return energyWrap;
             }
 
+            // Update an existing .energy-meter in place (no DOM recreation).
+            function updateEnergyBar(energyWrap, currentEnergy) {
+                const maxEnergy = Math.max(Number(map_config.max_bot_energy) || 0, currentEnergy, 1);
+                const energyPct = Math.max(0, Math.min(100, (currentEnergy / maxEnergy) * 100));
+                energyWrap.setAttribute('title', `Energy ${currentEnergy}/${maxEnergy}`);
+                energyWrap.setAttribute('aria-label', `Energy ${currentEnergy} of ${maxEnergy}`);
+
+                const energyFill = energyWrap.querySelector('.energy-fill');
+                energyFill.className = `energy-fill ${energyFillClass(energyPct)}`;
+                energyFill.style.width = `${energyPct}%`;
+
+                energyWrap.querySelector('.energy-label').textContent = `${currentEnergy}/${maxEnergy}`;
+            }
+
             function createCargoBar(cargo, variant) {
+                const cargoWrap = document.createElement('div');
+                cargoWrap.classList.add('cargo-meter');
+
+                const fill = document.createElement('div');
+                fill.classList.add('cargo-fill');
+                cargoWrap.appendChild(fill);
+
+                const label = document.createElement('span');
+                label.classList.add('cargo-label');
+                cargoWrap.appendChild(label);
+
+                updateCargoBar(cargoWrap, cargo, variant);
+                return cargoWrap;
+            }
+
+            // Update an existing .cargo-meter in place (no DOM recreation).
+            function updateCargoBar(cargoWrap, cargo, variant) {
                 const currentLoad = cargoLoad(cargo);
                 const capacity = variantCapacity(variant);
                 const remainingCapacity = capacity > 0 ? Math.max(0, capacity - currentLoad) : 0;
                 const remainingPct = capacity > 0
                     ? Math.max(0, Math.min(100, (remainingCapacity / capacity) * 100))
                     : 0;
-                const cargoWrap = document.createElement('div');
-                cargoWrap.classList.add('cargo-meter');
                 cargoWrap.setAttribute('title', capacity > 0 ? `Capacity ${remainingCapacity}/${capacity} free; cargo ${currentLoad}/${capacity}` : `Cargo ${currentLoad}`);
                 cargoWrap.setAttribute('aria-label', capacity > 0 ? `Capacity ${remainingCapacity} of ${capacity} free` : `Cargo ${currentLoad}`);
 
-                const fill = document.createElement('div');
-                fill.classList.add('cargo-fill');
-                fill.style.width = `${remainingPct}%`;
-                cargoWrap.appendChild(fill);
-
-                const label = document.createElement('span');
-                label.classList.add('cargo-label');
-                label.textContent = capacity > 0 ? `${remainingCapacity}/${capacity} free` : `${currentLoad}`;
-                cargoWrap.appendChild(label);
-
-                return cargoWrap;
+                cargoWrap.querySelector('.cargo-fill').style.width = `${remainingPct}%`;
+                cargoWrap.querySelector('.cargo-label').textContent = capacity > 0 ? `${remainingCapacity}/${capacity} free` : `${currentLoad}`;
             }
 
-            function appendCargoChips(parent, cargo) {
+            function createCargoGrid(cargo) {
                 const cargoContainer = document.createElement('div');
                 cargoContainer.classList.add('cargo-grid');
+                updateCargoChips(cargoContainer, cargo);
+                return cargoContainer;
+            }
+
+            // The cargo list is variable-length, so rebuild the chips inside the
+            // (persistent) .cargo-grid. This sits inside a fixed-width card, so it
+            // never disturbs the bot row's horizontal scroll.
+            function updateCargoChips(cargoContainer, cargo) {
+                cargoContainer.replaceChildren();
 
                 if (!cargo || cargo.length === 0) {
                     const empty = document.createElement('span');
                     empty.classList.add('cargo-empty');
                     empty.textContent = 'No cargo';
                     cargoContainer.appendChild(empty);
-                    parent.appendChild(cargoContainer);
                     return;
                 }
 
@@ -1446,30 +1469,22 @@ function drawGame(hostname, port) {
 
                     cargoContainer.appendChild(chip);
                 });
-
-                parent.appendChild(cargoContainer);
             }
 
+            // Build a bot card's static skeleton once. All values (and the click
+            // target) are filled in by renderBotCard, which is also what runs on
+            // every later tick — so a card is created once and updated in place,
+            // and the bot row's horizontal scroll is never reset.
             function createBotCard(id, position, variant, currentEnergy, job, cargo) {
                 const botDiv = document.createElement('button');
                 botDiv.classList.add('bot-info');
                 botDiv.type = 'button';
-                botDiv.dataset.botId = id;
-                botDiv.title = `Focus bot #${id}`;
-
-                const variantName = NameMaps.mapName("variantMap", variant);
-                const jobName = NameMaps.mapName("actionMap", job.action);
-                botDiv.setAttribute('aria-label', `Focus ${variantName} bot ${id} at ${position.x}, ${position.y}`);
-                botDiv.addEventListener('click', () => focusMapOnPosition(position));
 
                 const cardHeader = document.createElement('div');
                 cardHeader.classList.add('bot-card-header');
 
-                const botImage = assetManager.getBotImage(variant, job, cargo) || assetManager.images.unknown;
                 const image = document.createElement('img');
                 image.classList.add('bot-sidebar-icon');
-                image.src = botImage.src || './assets/unknown.jpg';
-                image.alt = variantName;
                 image.width = 28;
                 image.height = 28;
                 cardHeader.appendChild(image);
@@ -1478,25 +1493,53 @@ function drawGame(hostname, port) {
                 titleGroup.classList.add('bot-title-group');
                 const title = document.createElement('h4');
                 title.classList.add('bot-title');
-                title.textContent = variantName;
                 titleGroup.appendChild(title);
                 cardHeader.appendChild(titleGroup);
                 botDiv.appendChild(cardHeader);
 
                 const metaRow = document.createElement('div');
                 metaRow.classList.add('bot-meta-row');
-                const positionText = document.createElement('span');
-                positionText.textContent = `${position.x}, ${position.y}`;
-                const jobText = document.createElement('span');
-                jobText.textContent = jobName;
-                metaRow.append(positionText, jobText);
+                metaRow.append(document.createElement('span'), document.createElement('span'));
                 botDiv.appendChild(metaRow);
 
                 botDiv.appendChild(createEnergyBar(currentEnergy));
                 botDiv.appendChild(createCargoBar(cargo, variant));
-                appendCargoChips(botDiv, cargo);
+                botDiv.appendChild(createCargoGrid(cargo));
 
+                // Single click handler reads the latest position stashed by renderBotCard.
+                botDiv.addEventListener('click', () => {
+                    if (botDiv._focusPosition) focusMapOnPosition(botDiv._focusPosition);
+                });
+
+                renderBotCard(botDiv, id, position, variant, currentEnergy, job, cargo);
                 return botDiv;
+            }
+
+            // Update an existing bot card's contents in place.
+            function renderBotCard(botDiv, id, position, variant, currentEnergy, job, cargo) {
+                const variantName = NameMaps.mapName("variantMap", variant);
+                const jobName = NameMaps.mapName("actionMap", job.action);
+
+                botDiv.dataset.botId = id;
+                botDiv.title = `Focus bot #${id}`;
+                botDiv.setAttribute('aria-label', `Focus ${variantName} bot ${id} at ${position.x}, ${position.y}`);
+                botDiv._focusPosition = position;
+
+                const image = botDiv.querySelector('.bot-sidebar-icon');
+                const botImage = assetManager.getBotImage(variant, job, cargo) || assetManager.images.unknown;
+                const nextSrc = botImage.src || './assets/unknown.jpg';
+                if (image.getAttribute('src') !== nextSrc) image.setAttribute('src', nextSrc);
+                image.alt = variantName;
+
+                botDiv.querySelector('.bot-title').textContent = variantName;
+
+                const metaSpans = botDiv.querySelectorAll('.bot-meta-row > span');
+                metaSpans[0].textContent = `${position.x}, ${position.y}`;
+                metaSpans[1].textContent = jobName;
+
+                updateEnergyBar(botDiv.querySelector('.energy-meter'), currentEnergy);
+                updateCargoBar(botDiv.querySelector('.cargo-meter'), cargo, variant);
+                updateCargoChips(botDiv.querySelector('.cargo-grid'), cargo);
             }
 
             //shows a row for each player showing each bot and their data
@@ -1509,19 +1552,55 @@ function drawGame(hostname, port) {
 
                 const color = colors[playerIndex];
 
-                sidebar.replaceChildren();
+                // Update the row in place rather than rebuilding it: the .bot-box
+                // element persists across ticks, so its horizontal scroll offset
+                // is preserved naturally and stays scrollable while ticks arrive.
 
-                const playerSummary = createPlayerSummary(getPlayerLabel(player_id), color);
-                appendWinProgress(playerSummary, playerIndex);
-                sidebar.appendChild(playerSummary);
+                // --- Player summary (separate from the bot row; safe to rebuild) ---
+                let summary = sidebar.querySelector('.player-summary');
+                if (!summary) {
+                    summary = createPlayerSummary(getPlayerLabel(player_id), color);
+                    sidebar.insertBefore(summary, sidebar.firstChild);
+                } else {
+                    // Replace just the header + win progress (no status placeholder).
+                    summary.replaceChildren(...createPlayerSummary(getPlayerLabel(player_id), color).children);
+                }
+                appendWinProgress(summary, playerIndex);
 
-                const botBox = document.createElement('div');
-                botBox.classList.add('bot-box');
-                sidebar.appendChild(botBox);
+                // --- Bot row: reuse the persistent .bot-box and reconcile cards by id ---
+                let botBox = sidebar.querySelector('.bot-box');
+                if (!botBox) {
+                    botBox = document.createElement('div');
+                    botBox.classList.add('bot-box');
+                    sidebar.appendChild(botBox);
+                }
+
+                const existingCards = new Map();
+                for (const card of botBox.children) existingCards.set(card.dataset.botId, card);
+
+                const seenIds = new Set();
+                let slot = 0;
                 for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of botMap.entries()) {
-                    if (playerIndex == botPlayerIndex) { //THIS MIGHT NOT WORK
-                        botBox.appendChild(createBotCard(id, position, variant, current_energy, job, cargo));
+                    if (playerIndex != botPlayerIndex) continue;
+                    const key = String(id);
+                    seenIds.add(key);
+
+                    let card = existingCards.get(key);
+                    if (card) {
+                        renderBotCard(card, id, position, variant, current_energy, job, cargo);
+                    } else {
+                        card = createBotCard(id, position, variant, current_energy, job, cargo);
                     }
+                    // Move the card into its correct slot only if it isn't already there.
+                    if (botBox.children[slot] !== card) {
+                        botBox.insertBefore(card, botBox.children[slot] || null);
+                    }
+                    slot++;
+                }
+
+                // Drop cards for bots that are no longer this player's.
+                for (const [key, card] of existingCards) {
+                    if (!seenIds.has(key)) card.remove();
                 }
             }
 
