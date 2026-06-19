@@ -1578,10 +1578,16 @@ function drawGame(hostname, port) {
                 const existingCards = new Map();
                 for (const card of botBox.children) existingCards.set(card.dataset.botId, card);
 
+                // This player's bots, with factory bots pinned to the left. The
+                // sort is stable, so within each group the natural botMap order is
+                // kept.
+                const playerBots = [...botMap.entries()].filter(([, entry]) => entry[5] === playerIndex);
+                playerBots.sort(([, a], [, b]) =>
+                    (b[1] === 'kFactoryBot' ? 1 : 0) - (a[1] === 'kFactoryBot' ? 1 : 0));
+
                 const seenIds = new Set();
                 let slot = 0;
-                for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of botMap.entries()) {
-                    if (playerIndex != botPlayerIndex) continue;
+                for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of playerBots) {
                     const key = String(id);
                     seenIds.add(key);
 
