@@ -10,7 +10,7 @@
     integrity="sha384-KGmzmwrs7oAU2sG5qfETslFsscVcCaxQrX2d7PW7I9bTrsuTD/eSMFr9jaMS9i+b"
     crossorigin="anonymous"></script>
   <script src="/scripts/utilities/svgimporter.js" type="module"></script>
-  <script src="/scripts/settings.js" type="module"></script>
+  <script src="/scripts/ui/settings_page.js" type="module"></script>
 </head>
 
 <body>
@@ -18,35 +18,24 @@
     <nav id="settings-nav" class="app-nav">
       <a class="app-brand" href="#">Settings</a>
       <div id="action-container">
-        <a class="icon-button" role="button" onclick="SettingsManager.ClickHandlers.reset_settings_clicked();" title="Reset all settings"
-          id="reset-all-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/reset.svg"></svgfile></a>
-        <a class="icon-button" role="button"  onclick="SettingsManager.ClickHandlers.ok_clicked();" title="OK"
-          id="ok-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/ok.svg"></svgfile></a>
-        <a class="icon-button" role="button" onclick="SettingsManager.ClickHandlers.cancel_clicked();" title="Cancel"
-          id="cancel-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/cancel.svg" class="w-5"></svgfile></a>
-        <a class="icon-button" role="button" onclick="SettingsManager.ClickHandlers.apply_clicked();" title="Apply"
-          id="apply-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/apply.svg"></svgfile></a>
-        <a class="icon-button" role="button" onclick="SettingsManager.export_settings();" title="Export settings"
-          id="export-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/export.svg"></svgfile></a>
-        <a class="icon-button" role="button" onclick="SettingsManager.import_settings();" title="Import settings"
-          id="import-button" helpon-available><svgfile aria-hidden="true" src="/assets/ui/import.svg"></svgfile></a>
-        <script type="module">
-          import KeyboardUtilities from '/scripts/utilities/keyboard_utilities.js';
-          function setMnemonic(element, useSecondary, key,additional_key) {
-            let keyTag = KeyboardUtilities.joinMnemonic(useSecondary,key) + (additional_key ? ` or ${additional_key}` : '')
-            element.title += ` (${keyTag})`;
-            let describerId=`${element.id}-description`;
-            element.setAttribute("aria-labelledby", `${element.id}-label`);
-            document.getElementById(describerId).textContent = `Shortcut: (${keyTag})`;
-            element.setAttribute("aria-describedby", describerId);
-          }
-          setMnemonic(document.getElementById("reset-all-button"),false,'D');
-          setMnemonic(document.getElementById("ok-button"),false,'O');
-          setMnemonic(document.getElementById("cancel-button"),false,'C','Escape');
-          setMnemonic(document.getElementById("apply-button"),false,'A');
-          setMnemonic(document.getElementById("export-button"),false,'S');
-          setMnemonic(document.getElementById("import-button"),false,'I');
-        </script>
+        <button class="icon-button" type="button" title="Reset all settings" id="reset-all-button" helpon-available>
+          <svgfile aria-hidden="true" src="/assets/ui/reset.svg"></svgfile>
+        </button>
+        <button class="icon-button" type="button" title="OK" id="ok-button" helpon-available>
+          <svgfile aria-hidden="true" src="/assets/ui/ok.svg"></svgfile>
+        </button>
+        <button class="icon-button" type="button" title="Cancel" id="cancel-button" helpon-available>
+          <svgfile aria-hidden="true" src="/assets/ui/cancel.svg" class="w-5"></svgfile>
+        </button>
+        <button class="icon-button" type="button" title="Apply" id="apply-button" helpon-available>
+          <svgfile aria-hidden="true" src="/assets/ui/apply.svg"></svgfile>
+        </button>
+        <button class="icon-button" type="button" title="Export settings" id="export-button" helpon-available>
+          <svgfile aria-hidden="true" src="/assets/ui/export.svg"></svgfile>
+        </button>
+        <button class="icon-button" type="button" title="Import settings" id="import-button" helpon-available>
+          <svgfile aria-hidden="true" src="/assets/ui/import.svg"></svgfile>
+        </button>
       </div>
     </nav>
 
@@ -62,10 +51,6 @@
       </b>
     </div>
   </div>
-  <script type="module">
-    import SettingsManager from "/scripts/settings.js";
-    SettingsManager.initialize_popup();
-  </script>
   <div id="accessibility-labels">
     <span id="reset-all-button-label">Reset All</span>
     <span id="reset-all-button-description"></span>

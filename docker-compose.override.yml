@@ -1,0 +1,5 @@
+services:
+  miningbots-frontend-server:
+    ports:
+      - 80:80
+
