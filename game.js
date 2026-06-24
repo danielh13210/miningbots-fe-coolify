@@ -156,10 +156,10 @@ if(server && servers[server]){
             port = url.split(":")[1];
         } else {
             hostname = url;
-            port = (servers[hostname].require_security || CONFIG_['require_security']) ? '443' : '80';
+            port = (servers[server].require_security || CONFIG_['require_security']) ? '443' : '80';
         }
         set_protocols(servers[server].require_security);
-        setServerName(servers[hostname].name);
+        setServerName(servers[server].name);
         main();
     }
 }
