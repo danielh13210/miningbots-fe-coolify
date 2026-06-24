@@ -1486,6 +1486,9 @@ function drawGame(hostname, port) {
         });
 }
 function main(){
+    setupStartGameControl();
+    setupSidebarResizer();
+    setupBotRowWheelScroll();
     LoadingBox.setStatus(LoadingBox.Status.LOADING);
     setServerName(config.get("instance_name") || hostname);
     if (hostname !== null) {
