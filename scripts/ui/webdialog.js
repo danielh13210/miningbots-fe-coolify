@@ -35,7 +35,7 @@ function showDialog_(html,title,buttons,onClose,submitButton,hasSVGFiles){
     closeButton.classList.add("dialog-close");
     const x = document.createElement('p');
     x.classList.add("dialog-xbutton");
-    x.innerHTML="x";
+    x.textContent="x";
     closeButton.appendChild(x);
     let overflow_prev=document.body.style.overflow;
     function close_dialog(callOnClose=false){ 
@@ -73,7 +73,7 @@ function showDialog_(html,title,buttons,onClose,submitButton,hasSVGFiles){
     buttons.forEach(button_descriptor => {
         let button=document.createElement("button");
         button.classList.add("dialog-button");
-        button.innerHTML=button_descriptor.text;
+        button.textContent=button_descriptor.text;
         let action=button_descriptor.action;
         if (typeof action!="function"){
             action=()=>true;
@@ -171,7 +171,12 @@ let DialogUtilities = {
 export default DialogUtilities;
 
 // add stylesheet
-document.head.innerHTML+=`<link rel="stylesheet" href="/styles/tailwind.css">`;
+if (!document.querySelector('link[href="/styles/tailwind.css"]')) {
+    const stylesheet = document.createElement("link");
+    stylesheet.rel = "stylesheet";
+    stylesheet.href = "/styles/tailwind.css";
+    document.head.appendChild(stylesheet);
+}
 
 // add key handlers
 document.addEventListener('keydown', (event) => {

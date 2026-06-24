@@ -1,0 +1,258 @@
+/* Observer-UI additions (live trades view + the Start Game control).
+   Plain CSS (loaded after the Tailwind build) so it survives a
+   `npm run build:css`, which only rewrites styles/tailwind.css. */
+
+/* Stack the trades panel above the map in normal flow so it never covers the
+   top of the map. The map pane is a column: trades panel on top (fixed height),
+   map viewport fills the rest. When the panel is hidden the viewport gets the
+   full height back automatically. */
+.map-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The map viewport takes whatever vertical space is left under the trades
+   panel (overrides Tailwind's h-screen, which is loaded earlier). */
+.map-viewport {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+
+.trades-panel {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 20vh;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 0.5rem 0.625rem;
+  background: rgba(2, 6, 23, 0.82); /* slate-950, translucent so the map shows through */
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  backdrop-filter: blur(2px);
+  color: #e2e8f0;
+  pointer-events: auto;
+}
+
+/* Higher specificity than the bare `.trades-panel { display: flex }` above so
+   the `hidden` class actually collapses the panel (and the map viewport gets
+   the full height back) — e.g. on servers without the trading pack. */
+.trades-panel.hidden {
+  display: none;
+}
+
+.trades-panel-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+  flex: 0 0 auto;
+}
+
+.trades-panel-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #f8fafc;
+}
+
+.trades-panel-subtitle {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+}
+
+#trades-panel-list {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+#trades-panel-list::-webkit-scrollbar {
+  height: 6px;
+}
+
+#trades-panel-list::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 3px;
+}
+
+.trade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  min-width: 11rem;
+  max-width: 14rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(30, 41, 59, 0.85); /* slate-800 */
+  border: 1px solid rgba(71, 85, 105, 0.6);
+}
+
+.trade-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.trade-card-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+  image-rendering: auto;
+}
+
+.trade-card-headtext {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+  flex: 1 1 auto;
+}
+
+.trade-card-fills {
+  flex: 0 0 auto;
+  font-size: 0.625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #cbd5e1; /* slate-300 */
+  background: rgba(51, 65, 85, 0.9); /* slate-700 */
+  border: 1px solid rgba(100, 116, 139, 0.5);
+  border-radius: 0.625rem;
+  padding: 0.0625rem 0.375rem;
+  white-space: nowrap;
+}
+
+/* Top-3 bid / ask ladder. */
+.trade-card-book {
+  display: flex;
+  gap: 0.375rem;
+  margin-top: 0.0625rem;
+}
+
+.trade-book-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+}
+
+.trade-book-colhead {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #94a3b8; /* slate-400 */
+}
+
+.trade-book-bids .trade-book-colhead { color: #4ade80; } /* green-400 */
+.trade-book-asks .trade-book-colhead { color: #f87171; } /* red-400 */
+
+.trade-book-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.trade-book-px {
+  font-weight: 700;
+}
+
+.trade-book-bids .trade-book-px { color: #86efac; } /* green-300 */
+.trade-book-asks .trade-book-px { color: #fca5a5; } /* red-300 */
+
+.trade-book-qty {
+  color: #94a3b8; /* slate-400 */
+}
+
+.trade-book-empty {
+  color: #64748b; /* slate-500 */
+  justify-content: flex-start;
+}
+
+.trade-card-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trade-card-last {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.trade-card-last.trade-buy {
+  color: #4ade80; /* green-400 */
+}
+
+.trade-card-last.trade-sell {
+  color: #f87171; /* red-400 */
+}
+
+.trade-card-last.trade-none {
+  color: #64748b; /* slate-500 */
+  font-weight: 500;
+  font-style: italic;
+}
+
+.trade-card-fair {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Start Game control — only shown while the game is kNotStarted. */
+.game-status-row-actions {
+  display: flex;
+  margin-top: 0.5rem;
+}
+
+.start-game-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid #15803d; /* green-700 */
+  border-radius: 0.375rem;
+  background: #16a34a; /* green-600 */
+  color: #f0fdf4;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+}
+
+.start-game-button:hover {
+  background: #15803d;
+}
+
+.start-game-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.55);
+}
+
+.start-game-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}

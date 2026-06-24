@@ -4,6 +4,9 @@ import NameMaps from './scripts/ui/human_readable_names.js';
 import DialogUtilities from './scripts/ui/webdialog.js';
 import LoadingBox from './scripts/ui/loadingbox.js';
 import assetManager from './scripts/ui/asset_manager.js';
+import tradesPanel from './scripts/ui/trades_panel.js';
+import gameTimer from './scripts/ui/game_timer.js';
+import setupSidebarResizer from './scripts/ui/sidebar_resizer.js';
 
 console.log("script started");
 
@@ -11,6 +14,7 @@ console.log("script started");
 // var hostname = "miningbots-api.dev.tk.sg";
 // var port = 443;
 var hostname, port;
+// if (server !== null) hostname = server;
 
 const GameUnvailableError = class extends Error {
     constructor(message) {
@@ -18,6 +22,10 @@ const GameUnvailableError = class extends Error {
         this.name = "GameUnvailableError";
     }
 }
+
+let reconnectPollTimeoutId = null;
+let reconnectPollInProgress = false;
+let activeDrawSessionId = 0;
 
 let http_type,ws_type;
 function set_protocols(upgrade_connection){
@@ -120,32 +128,178 @@ function renderGameStatus(game, mapConfig, hasObservedTick = false) {
         statusState.dataset.status = hasObservedTick ? 'kRunning' : (game.game_status || '');
         statusState.title = `Server status: ${formatServerStatus(game.game_status)}`;
     }
-}
 
-async function refreshGameStatus(matchGameId, mapConfig, hasObservedTick = false) {
-    try {
-        const response = await fetch(`${http_type}://${hostname}:${port}/games`, { method: 'GET' });
-        if (!response.ok) throw new Error(response.statusText);
-        const games = await response.json();
-        const game = games.find(g => g.game_id === matchGameId);
-        if (game) renderGameStatus(game, mapConfig, hasObservedTick);
-        return game;
-    } catch (error) {
-        console.error('Failed to refresh game status:', error);
-        return null;
+    // A kNotStarted game is joinable but frozen; offer the observer-only start control.
+    if (!hasObservedTick && game.game_status === 'kNotStarted') {
+        showStartGameControl(game.game_id);
+    } else {
+        hideStartGameControl();
     }
 }
 
-function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGame) {
+function selectActiveGame(games, currentGameId = null) {
+    if (!Array.isArray(games) || games.length === 0) return null;
+    const candidates = games.filter(game => game.game_status !== 'kEnded');
+    if (currentGameId !== null) {
+        const replacement = candidates.find(game => game.game_id !== currentGameId);
+        if (replacement) return replacement;
+    }
+    return candidates[0] || games[0];
+}
+
+async function fetchGames() {
+    const response = await fetch(`${http_type}://${hostname}:${port}/games`, { method: 'GET' });
+    if (!response.ok) throw new Error(response.statusText);
+    return response.json();
+}
+
+async function refreshGameStatus(matchGameId, mapConfig, hasObservedTick = false) {
+    const games = await fetchGames();
+    const game = games.find(g => g.game_id === matchGameId);
+    if (game) renderGameStatus(game, mapConfig, hasObservedTick);
+    return game;
+}
+
+function showStartGameControl(gameId) {
+    const row = document.getElementById('start-game-row');
+    const button = document.getElementById('start-game-button');
+    if (!row || !button) return;
+    button.dataset.gameId = String(gameId);
+    button.disabled = false;
+    setText('start-game-button-text', 'Start Game');
+    row.classList.remove('hidden');
+}
+
+function hideStartGameControl() {
+    document.getElementById('start-game-row')?.classList.add('hidden');
+}
+
+// Observer-only POST /start_game. The whole request rides in a single
+// url-encoded `request` query param (same convention as /move, /join_game).
+// Success is the bare JSON string "kSuccess"; "already started" is treated as
+// success since the call is effectively idempotent.
+async function startGame(gameId) {
+    const request = encodeURIComponent(JSON.stringify({
+        game_id: gameId,
+        observer_key: CONFIG_.observer_key,
+    }));
+    const response = await fetch(`${http_type}://${hostname}:${port}/start_game?request=${request}`, { method: 'POST' });
+    let body;
+    try {
+        body = await response.json();
+    } catch (e) {
+        throw new Error('Unexpected response from server.');
+    }
+    if (body === 'kSuccess') return { ok: true };
+    if (body && body.error === 'kCannotStartGameAlreadyStarted') return { ok: true, alreadyStarted: true };
+    const message = (body && (body.error_message || body.error)) || 'Unknown error';
+    return { ok: false, error: body && body.error, message };
+}
+
+// Wired once on load; the active game id is stashed on the button's dataset by
+// renderGameStatus whenever the game is joinable-but-frozen (kNotStarted).
+function setupStartGameControl() {
+    const button = document.getElementById('start-game-button');
+    if (!button) return;
+    button.addEventListener('click', async () => {
+        const gameId = Number(button.dataset.gameId);
+        if (!Number.isFinite(gameId) || gameId === 0) return;
+        button.disabled = true;
+        setText('start-game-button-text', 'Starting…');
+        try {
+            const result = await startGame(gameId);
+            if (result.ok) {
+                // The observer feed / status poll will flip the UI to Running shortly.
+                setText('start-game-button-text', result.alreadyStarted ? 'Already started' : 'Started');
+                hideStartGameControl();
+            } else {
+                DialogUtilities.showDialog(`Could not start game: ${result.message}`, 'Start Game');
+                setText('start-game-button-text', 'Start Game');
+                button.disabled = false;
+            }
+        } catch (error) {
+            DialogUtilities.showDialog(`Could not start game: ${error.message}`, 'Start Game');
+            setText('start-game-button-text', 'Start Game');
+            button.disabled = false;
+        }
+    });
+}
+
+// Each team's bots live on a single horizontal-scrolling row (.bot-box). A
+// horizontal-only strip doesn't react to the mouse wheel by default, so users
+// can't reach the off-screen bots. Delegate a wheel handler from the stable
+// list container (the per-team rows are rebuilt every tick) that turns a
+// vertical wheel into a horizontal scroll — but only while the row actually has
+// somewhere to go, so at the ends the wheel falls back to scrolling the list.
+function setupBotRowWheelScroll() {
+    const list = document.getElementById('player-sidebar-list');
+    if (!list) return;
+    list.addEventListener('wheel', (event) => {
+        const box = event.target.closest?.('.bot-box');
+        if (!box || box.scrollWidth <= box.clientWidth || event.deltaY === 0) return;
+        const before = box.scrollLeft;
+        box.scrollLeft += event.deltaY;
+        if (box.scrollLeft !== before) event.preventDefault();
+    }, { passive: false });
+}
+
+function startGameStatusPolling(matchGameId, mapConfig, getHasObservedTick, onGame, onStaleGame) {
+    const BASE_INTERVAL = 3000;
+    const MAX_INTERVAL = 30000;
+    let interval = BASE_INTERVAL;
+    let timeoutId = null;
+
     const poll = async () => {
-        const game = await refreshGameStatus(matchGameId, mapConfig, getHasObservedTick());
-        if (game && typeof onGame === 'function') onGame(game);
+        try {
+            const game = await refreshGameStatus(matchGameId, mapConfig, getHasObservedTick());
+            if (!game || game.game_status === 'kEnded') {
+                if (typeof onStaleGame === 'function') onStaleGame('status-poll');
+                return;
+            }
+            if (game && typeof onGame === 'function') onGame(game);
+            interval = BASE_INTERVAL;
+        } catch (error) {
+            interval = Math.min(interval * 2, MAX_INTERVAL);
+            console.warn(`Game status poll failed, retrying in ${interval / 1000}s:`, error.message);
+        }
+        timeoutId = setTimeout(poll, interval);
     };
+
+    timeoutId = setTimeout(poll, 0);
+    return { stop: () => clearTimeout(timeoutId) };
+}
+
+function pollForReplacementGame(currentGameId, reason) {
+    if (!window.GameObserverControls?.isAutoRefreshEnabled?.()) {
+        console.log(`Game became stale after ${reason}; auto-connect is disabled.`);
+        return;
+    }
+    if (reconnectPollInProgress) return;
+    reconnectPollInProgress = true;
+    if (reconnectPollTimeoutId) clearTimeout(reconnectPollTimeoutId);
+
+    const poll = async () => {
+        try {
+            const games = await fetchGames();
+            const replacement = selectActiveGame(games, currentGameId);
+            if (replacement && replacement.game_id !== currentGameId && replacement.game_status !== 'kEnded') {
+                console.log(`Found replacement game ${replacement.game_id} after ${reason}; reloading observer.`);
+                window.location.reload();
+                return;
+            }
+        } catch (error) {
+            console.warn(`Waiting for replacement game after ${reason}:`, error.message);
+        }
+        reconnectPollTimeoutId = setTimeout(poll, 3000);
+    };
+
+    LoadingBox.setStatus(LoadingBox.Status.LOADING);
     poll();
-    return window.setInterval(poll, 3000);
 }
 
 function drawGame(hostname, port) {
+    const drawSessionId = ++activeDrawSessionId;
+    gameTimer.reset();
     const canvas = document.getElementById("gameCanvas");
     const mapViewport = document.getElementById("map-viewport");
     const mapStage = document.getElementById("map-canvas-stage");
@@ -160,21 +314,13 @@ function drawGame(hostname, port) {
     let terrainImages={};
 
     //Likely connecting to the server and retrieving initial game state
-    fetch(`${http_type}://${hostname}:${port}/games`, {
-        method: 'GET'
-    })
-        .then(response => {
-            // console.log(response);
-            if (response.ok) {
-                // console.log('games:', response);
-                return response.json();
-            } else {
-                throw new Error(response.statusText);
-            }
-        })
+    fetchGames()
         .then(games => {
             console.log('games:', games);
-            let selectedGame = games[0];
+            let selectedGame = selectActiveGame(games);
+            if (!selectedGame) {
+                throw new GameUnvailableError('No games available');
+            }
             let gameId = selectedGame.game_id;
             let gameStatus = selectedGame.game_status;
             renderGameStatus(selectedGame);
@@ -207,11 +353,15 @@ function drawGame(hostname, port) {
             let selectedGameInfo = result.game;
             let hasObservedTick = false;
             renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
-            startGameStatusPolling(
+            const statusPolling = startGameStatusPolling(
                 matchGameId,
                 map_config,
                 () => hasObservedTick,
-                game => { selectedGameInfo = game; }
+                game => { selectedGameInfo = game; },
+                reason => {
+                    statusPolling.stop();
+                    pollForReplacementGame(matchGameId, reason);
+                }
             );
             console.log('map_config:', map_config);
             // rendring information
@@ -425,6 +575,47 @@ function drawGame(hostname, port) {
                 drawASquare(col, row, terrain, image, resourceOpacity(row, col, cell.primary));
             }
 
+            function drawDisruptEffects(now) {
+                const duration = 900;
+                let active = false;
+                for (let i = disruptEffects.length - 1; i >= 0; i--) {
+                    const effect = disruptEffects[i];
+                    const progress = Math.min(1, Math.max(0, (now - effect.startedAt) / duration));
+                    if (progress >= 1) {
+                        disruptEffects.splice(i, 1);
+                        continue;
+                    }
+
+                    active = true;
+                    const alpha = 1 - progress;
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    const centerX = (effect.position.x + 0.5) * GRID_SIZE;
+                    const centerY = (ROWS - effect.position.y - 0.5) * GRID_SIZE;
+                    const radiusPx = (effect.radius + 0.5) * GRID_SIZE;
+
+                    ctx.save();
+                    ctx.fillStyle = `rgba(236, 72, 153, ${0.18 * alpha})`;
+                    ctx.strokeStyle = `rgba(236, 72, 153, ${0.85 * alpha})`;
+                    ctx.lineWidth = Math.max(2, GRID_SIZE * 0.08);
+
+                    for (let dy = -effect.radius; dy <= effect.radius; dy++) {
+                        for (let dx = -effect.radius; dx <= effect.radius; dx++) {
+                            if ((dx * dx + dy * dy) > (effect.radius * effect.radius)) continue;
+                            const x = effect.position.x + dx;
+                            const y = effect.position.y + dy;
+                            if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+                            ctx.fillRect(x * GRID_SIZE, (ROWS - y - 1) * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                        }
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radiusPx * eased, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                return active;
+            }
+
             function render(now = performance.now()) {
                 if (animationFrameId !== null) {
                     cancelAnimationFrame(animationFrameId);
@@ -477,6 +668,10 @@ function drawGame(hostname, port) {
                     }
                 }
 
+                if (drawDisruptEffects(now)) {
+                    isAnimating = true;
+                }
+
                 for (const entry of botMap.values()) {
                     const display = displayPositionForBot(entry, now);
                     const [position, variant, _currentEnergy, job, cargo, playerIndex] = entry;
@@ -499,13 +694,22 @@ function drawGame(hostname, port) {
             // initialized first to avoid a temporal-dead-zone ReferenceError.
             const botMap = new Map();
             const jobMap = new Map();
+            const disruptEffects = [];
             const players = {};
             const playerNames = {};
             render();
 
             const ws = new WebSocket(`${ws_type}://${hostname}:${port}/observer`);
 
+            // Live market-data view (top-left). Connects to the public /trades feed;
+            // a no-op against servers that don't have the trading pack enabled.
+            tradesPanel.connect(`${ws_type}://${hostname}:${port}/trades`, matchGameId, map_config.resource_configs);
+
             ws.onopen = function () {
+                if (drawSessionId !== activeDrawSessionId) {
+                    ws.close();
+                    return;
+                }
                 console.log('Connected to WebSocket server');
                 const subscribeRequest = JSON.stringify({ game_id: result.game_id, observer_key: Number(config.get("observer_key")), observer_name: 'Observer' });
                 ws.send(subscribeRequest);
@@ -520,10 +724,7 @@ function drawGame(hostname, port) {
                         const megacontainer = document.getElementById('player-sidebar-list');
                         while (sidebars.length < game.current_players) {
                             const idx = sidebars.length;
-                            const sidebar = document.createElement('div');
-                            sidebar.classList.add('sidebar');
-                            sidebar.id = 'bot-sidebar-' + (idx + 1);
-                            sidebar.innerHTML = `<div class="player-header"><h4>Player ${idx + 1}</h4><span>Waiting for updates...</span></div>`;
+                            const sidebar = createPlayerSidebar(idx, 'Waiting for updates...');
                             megacontainer.appendChild(sidebar);
                             sidebars.push(sidebar);
                         }
@@ -533,11 +734,15 @@ function drawGame(hostname, port) {
 
             //When receiving message from the server, parses it and applies updates to game accordingly
             ws.onmessage = function (msg) {
+                if (drawSessionId !== activeDrawSessionId) return;
                 try {
                     function parse_callback(json_string){
                         const data = JSON.parse(json_string);
                         switch (data.update_type) {
                             case 'kTickUpdate':
+                                // The first tick means the game is actually live;
+                                // start the elapsed-time clock from here.
+                                if (!hasObservedTick) gameTimer.start();
                                 hasObservedTick = true;
                                 renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
                                 if (Array.isArray(data.bot_updates)) {
@@ -560,13 +765,19 @@ function drawGame(hostname, port) {
                                 break;
                             case 'kEndInWin':
                                 console.log(`game ended player id ${data.player_id} won`);
+                                gameTimer.stop();
                                 showWinner(data.player_id);
+                                statusPolling.stop();
+                                pollForReplacementGame(matchGameId, 'game-ended');
                                 break;
                             case 'kEndInDraw':
                                 console.log('game ended in draw');
+                                gameTimer.stop();
+                                statusPolling.stop();
+                                pollForReplacementGame(matchGameId, 'game-ended');
                                 break;
                             default:
-                                console.log(data.UpdateType);
+                                console.log('Unhandled update_type:', data.update_type);
                                 break;
                         }
                     }
@@ -580,10 +791,53 @@ function drawGame(hostname, port) {
                 }
             }
 
+            ws.onclose = function () {
+                if (drawSessionId !== activeDrawSessionId) return;
+                console.log('Observer websocket closed; checking for replacement game.');
+                statusPolling.stop();
+                tradesPanel.disconnect();
+                tradesPanel.hide();
+                pollForReplacementGame(matchGameId, 'websocket-close');
+            };
+
+            ws.onerror = function (error) {
+                console.warn('Observer websocket error:', error);
+            };
+
             //Sidebars has to be dynamically added if in the future you want >2 players
             const sidebars = Array.from(document.querySelectorAll('div[id^="bot-sidebar-"]'));
             //Possibly add more colours for >2 players too
             const colors = ['rgba(0,100,255,0.35)', 'rgba(220,50,50,0.35)', 'rgba(0,190,0,0.35)', 'rgba(220,200,0,0.35)', 'rgba(170,0,230,0.35)', 'rgba(230,130,0,0.35)', 'rgba(230,80,160,0.35)'];
+
+            function createPlayerSummary(name, color, statusText) {
+                const playerSummary = document.createElement('div');
+                playerSummary.classList.add('player-summary');
+
+                const header = document.createElement('div');
+                header.classList.add('player-header');
+                if (color) header.style.color = color;
+
+                const playerName = document.createElement('h4');
+                playerName.textContent = name;
+                header.appendChild(playerName);
+
+                if (statusText) {
+                    const status = document.createElement('span');
+                    status.textContent = statusText;
+                    header.appendChild(status);
+                }
+
+                playerSummary.appendChild(header);
+                return playerSummary;
+            }
+
+            function createPlayerSidebar(playerIndex, statusText) {
+                const sidebar = document.createElement('div');
+                sidebar.classList.add('sidebar');
+                sidebar.id = 'bot-sidebar-' + (playerIndex + 1);
+                sidebar.appendChild(createPlayerSummary(`Player ${playerIndex + 1}`, null, statusText));
+                return sidebar;
+            }
 
             function ensurePlayer(playerId) {
                 if (!players.hasOwnProperty(playerId)) {
@@ -591,9 +845,7 @@ function drawGame(hostname, port) {
                     players[playerId] = playerIndex;
                     if (playerIndex >= sidebars.length) {
                         // No pre-created placeholder available, create one now
-                        const sidebar = document.createElement('div');
-                        sidebar.classList.add('sidebar');
-                        sidebar.id = 'bot-sidebar-' + (playerIndex + 1);
+                        const sidebar = createPlayerSidebar(playerIndex);
                         document.getElementById('player-sidebar-list').appendChild(sidebar);
                         sidebars.push(sidebar);
                     }
@@ -628,6 +880,10 @@ function drawGame(hostname, port) {
                     y: previousPosition.y + (position.y - previousPosition.y) * eased,
                     animating: progress < 1
                 };
+            }
+
+            function variantConfig(variant) {
+                return (map_config.variant_configs || []).find(item => item.variant === variant) || null;
             }
 
             function mapCellFromEvent(event) {
@@ -803,6 +1059,9 @@ function drawGame(hostname, port) {
                 const progress = bestWinProgress(playerIndex);
                 const progressBox = document.createElement('div');
                 progressBox.classList.add('win-progress');
+                progressBox.title = progress.total > 0
+                    ? `Win progress ${progress.current}/${progress.total}`
+                    : 'No win condition configured';
 
                 const heading = document.createElement('div');
                 heading.classList.add('win-progress-heading');
@@ -810,10 +1069,6 @@ function drawGame(hostname, port) {
                 const title = document.createElement('span');
                 title.textContent = 'Win';
                 heading.appendChild(title);
-
-                const percent = document.createElement('span');
-                percent.textContent = `${progress.current}/${progress.total || '-'}`;
-                heading.appendChild(percent);
                 progressBox.appendChild(heading);
 
                 const bar = document.createElement('div');
@@ -884,7 +1139,7 @@ function drawGame(hostname, port) {
                 } else {
                     job = { action: 'kNoAction', status: 'kNotStarted' };
                 }
-                botMap.set(id, [position, variant, current_energy, job, cargo || [], playerIndex, previousPosition, now]);
+                botMap.set(id, [position, variant, current_energy, job, cargo || [], playerIndex, previousPosition, now, current_job_id]);
                 var newRow = ROWS - position.y - 1;
                 var newCol = position.x;
                 let variantIdx = botVariants.indexOf(variant);
@@ -898,6 +1153,22 @@ function drawGame(hostname, port) {
                 const { id, action, status } = data;
                 var job = { action: action, status: status }
                 jobMap.set(id, job);
+                if (action === 'kExplode' && status === 'kCompleted') {
+                    for (const entry of botMap.values()) {
+                        const [position, variant, _energy, _job, _cargo, playerIndex] = entry;
+                        const currentJobId = entry[8];
+                        if (currentJobId !== id || variant !== 'kDisruptorBot') continue;
+
+                        disruptEffects.push({
+                            position: { ...position },
+                            radius: Number(variantConfig(variant)?.blast_radius || 0),
+                            playerIndex,
+                            startedAt: performance.now()
+                        });
+                        render();
+                        break;
+                    }
+                }
             }
 
             //Updates the state of a tile on the map
@@ -962,57 +1233,84 @@ function drawGame(hostname, port) {
             }
 
             function createEnergyBar(currentEnergy) {
-                const maxEnergy = Math.max(Number(map_config.max_bot_energy) || 0, currentEnergy, 1);
-                const energyPct = Math.max(0, Math.min(100, (currentEnergy / maxEnergy) * 100));
                 const energyWrap = document.createElement('div');
                 energyWrap.classList.add('energy-meter');
-                energyWrap.setAttribute('title', `Energy ${currentEnergy}/${maxEnergy}`);
-                energyWrap.setAttribute('aria-label', `Energy ${currentEnergy} of ${maxEnergy}`);
 
                 const energyFill = document.createElement('div');
-                energyFill.classList.add('energy-fill', energyFillClass(energyPct));
-                energyFill.style.width = `${energyPct}%`;
+                energyFill.classList.add('energy-fill');
                 energyWrap.appendChild(energyFill);
 
                 const energyText = document.createElement('span');
                 energyText.classList.add('energy-label');
-                energyText.textContent = `${currentEnergy}/${maxEnergy}`;
                 energyWrap.appendChild(energyText);
 
+                updateEnergyBar(energyWrap, currentEnergy);
                 return energyWrap;
             }
 
+            // Update an existing .energy-meter in place (no DOM recreation).
+            function updateEnergyBar(energyWrap, currentEnergy) {
+                const maxEnergy = Math.max(Number(map_config.max_bot_energy) || 0, currentEnergy, 1);
+                const energyPct = Math.max(0, Math.min(100, (currentEnergy / maxEnergy) * 100));
+                energyWrap.setAttribute('title', `Energy ${currentEnergy}/${maxEnergy}`);
+                energyWrap.setAttribute('aria-label', `Energy ${currentEnergy} of ${maxEnergy}`);
+
+                const energyFill = energyWrap.querySelector('.energy-fill');
+                energyFill.className = `energy-fill ${energyFillClass(energyPct)}`;
+                energyFill.style.width = `${energyPct}%`;
+
+                energyWrap.querySelector('.energy-label').textContent = `${currentEnergy}/${maxEnergy}`;
+            }
+
             function createCargoBar(cargo, variant) {
-                const currentLoad = cargoLoad(cargo);
-                const capacity = variantCapacity(variant);
                 const cargoWrap = document.createElement('div');
                 cargoWrap.classList.add('cargo-meter');
-                cargoWrap.setAttribute('title', capacity > 0 ? `Cargo ${currentLoad}/${capacity}` : `Cargo ${currentLoad}`);
-                cargoWrap.setAttribute('aria-label', capacity > 0 ? `Cargo ${currentLoad} of ${capacity}` : `Cargo ${currentLoad}`);
 
                 const fill = document.createElement('div');
                 fill.classList.add('cargo-fill');
-                fill.style.width = capacity > 0 ? `${Math.max(0, Math.min(100, (currentLoad / capacity) * 100))}%` : '0%';
                 cargoWrap.appendChild(fill);
 
                 const label = document.createElement('span');
                 label.classList.add('cargo-label');
-                label.textContent = capacity > 0 ? `${currentLoad}/${capacity}` : `${currentLoad}`;
                 cargoWrap.appendChild(label);
 
+                updateCargoBar(cargoWrap, cargo, variant);
                 return cargoWrap;
             }
 
-            function appendCargoChips(parent, cargo) {
+            // Update an existing .cargo-meter in place (no DOM recreation).
+            function updateCargoBar(cargoWrap, cargo, variant) {
+                const currentLoad = cargoLoad(cargo);
+                const capacity = variantCapacity(variant);
+                const remainingCapacity = capacity > 0 ? Math.max(0, capacity - currentLoad) : 0;
+                const remainingPct = capacity > 0
+                    ? Math.max(0, Math.min(100, (remainingCapacity / capacity) * 100))
+                    : 0;
+                cargoWrap.setAttribute('title', capacity > 0 ? `Capacity ${remainingCapacity}/${capacity} free; cargo ${currentLoad}/${capacity}` : `Cargo ${currentLoad}`);
+                cargoWrap.setAttribute('aria-label', capacity > 0 ? `Capacity ${remainingCapacity} of ${capacity} free` : `Cargo ${currentLoad}`);
+
+                cargoWrap.querySelector('.cargo-fill').style.width = `${remainingPct}%`;
+                cargoWrap.querySelector('.cargo-label').textContent = capacity > 0 ? `${remainingCapacity}/${capacity} free` : `${currentLoad}`;
+            }
+
+            function createCargoGrid(cargo) {
                 const cargoContainer = document.createElement('div');
                 cargoContainer.classList.add('cargo-grid');
+                updateCargoChips(cargoContainer, cargo);
+                return cargoContainer;
+            }
+
+            // The cargo list is variable-length, so rebuild the chips inside the
+            // (persistent) .cargo-grid. This sits inside a fixed-width card, so it
+            // never disturbs the bot row's horizontal scroll.
+            function updateCargoChips(cargoContainer, cargo) {
+                cargoContainer.replaceChildren();
 
                 if (!cargo || cargo.length === 0) {
                     const empty = document.createElement('span');
                     empty.classList.add('cargo-empty');
                     empty.textContent = 'No cargo';
                     cargoContainer.appendChild(empty);
-                    parent.appendChild(cargoContainer);
                     return;
                 }
 
@@ -1035,8 +1333,77 @@ function drawGame(hostname, port) {
 
                     cargoContainer.appendChild(chip);
                 });
+            }
 
-                parent.appendChild(cargoContainer);
+            // Build a bot card's static skeleton once. All values (and the click
+            // target) are filled in by renderBotCard, which is also what runs on
+            // every later tick — so a card is created once and updated in place,
+            // and the bot row's horizontal scroll is never reset.
+            function createBotCard(id, position, variant, currentEnergy, job, cargo) {
+                const botDiv = document.createElement('button');
+                botDiv.classList.add('bot-info');
+                botDiv.type = 'button';
+
+                const cardHeader = document.createElement('div');
+                cardHeader.classList.add('bot-card-header');
+
+                const image = document.createElement('img');
+                image.classList.add('bot-sidebar-icon');
+                image.width = 28;
+                image.height = 28;
+                cardHeader.appendChild(image);
+
+                const titleGroup = document.createElement('div');
+                titleGroup.classList.add('bot-title-group');
+                const title = document.createElement('h4');
+                title.classList.add('bot-title');
+                titleGroup.appendChild(title);
+                cardHeader.appendChild(titleGroup);
+                botDiv.appendChild(cardHeader);
+
+                const metaRow = document.createElement('div');
+                metaRow.classList.add('bot-meta-row');
+                metaRow.append(document.createElement('span'), document.createElement('span'));
+                botDiv.appendChild(metaRow);
+
+                botDiv.appendChild(createEnergyBar(currentEnergy));
+                botDiv.appendChild(createCargoBar(cargo, variant));
+                botDiv.appendChild(createCargoGrid(cargo));
+
+                // Single click handler reads the latest position stashed by renderBotCard.
+                botDiv.addEventListener('click', () => {
+                    if (botDiv._focusPosition) focusMapOnPosition(botDiv._focusPosition);
+                });
+
+                renderBotCard(botDiv, id, position, variant, currentEnergy, job, cargo);
+                return botDiv;
+            }
+
+            // Update an existing bot card's contents in place.
+            function renderBotCard(botDiv, id, position, variant, currentEnergy, job, cargo) {
+                const variantName = NameMaps.mapName("variantMap", variant);
+                const jobName = NameMaps.mapName("actionMap", job.action);
+
+                botDiv.dataset.botId = id;
+                botDiv.title = `Focus bot #${id}`;
+                botDiv.setAttribute('aria-label', `Focus ${variantName} bot ${id} at ${position.x}, ${position.y}`);
+                botDiv._focusPosition = position;
+
+                const image = botDiv.querySelector('.bot-sidebar-icon');
+                const botImage = assetManager.getBotImage(variant, job, cargo) || assetManager.images.unknown;
+                const nextSrc = botImage.src || './assets/unknown.jpg';
+                if (image.getAttribute('src') !== nextSrc) image.setAttribute('src', nextSrc);
+                image.alt = variantName;
+
+                botDiv.querySelector('.bot-title').textContent = variantName;
+
+                const metaSpans = botDiv.querySelectorAll('.bot-meta-row > span');
+                metaSpans[0].textContent = `${position.x}, ${position.y}`;
+                metaSpans[1].textContent = jobName;
+
+                updateEnergyBar(botDiv.querySelector('.energy-meter'), currentEnergy);
+                updateCargoBar(botDiv.querySelector('.cargo-meter'), cargo, variant);
+                updateCargoChips(botDiv.querySelector('.cargo-grid'), cargo);
             }
 
             //shows a row for each player showing each bot and their data
@@ -1049,53 +1416,61 @@ function drawGame(hostname, port) {
 
                 const color = colors[playerIndex];
 
-                sidebar.innerHTML = ''; // Clear the existing sidebar content
+                // Update the row in place rather than rebuilding it: the .bot-box
+                // element persists across ticks, so its horizontal scroll offset
+                // is preserved naturally and stays scrollable while ticks arrive.
 
-                const header = document.createElement('div');
-                header.classList.add('player-header');
-                header.style.color = color;
+                // --- Player summary (separate from the bot row; safe to rebuild) ---
+                let summary = sidebar.querySelector('.player-summary');
+                if (!summary) {
+                    summary = createPlayerSummary(getPlayerLabel(player_id), color);
+                    sidebar.insertBefore(summary, sidebar.firstChild);
+                } else {
+                    // Replace just the header + win progress (no status placeholder).
+                    summary.replaceChildren(...createPlayerSummary(getPlayerLabel(player_id), color).children);
+                }
+                appendWinProgress(summary, playerIndex);
 
-                const playerName = document.createElement('h4');
-                playerName.textContent = getPlayerLabel(player_id);
-                header.appendChild(playerName);
-                sidebar.appendChild(header);
+                // --- Bot row: reuse the persistent .bot-box and reconcile cards by id ---
+                let botBox = sidebar.querySelector('.bot-box');
+                if (!botBox) {
+                    botBox = document.createElement('div');
+                    botBox.classList.add('bot-box');
+                    sidebar.appendChild(botBox);
+                }
 
-                appendWinProgress(sidebar, playerIndex);
+                const existingCards = new Map();
+                for (const card of botBox.children) existingCards.set(card.dataset.botId, card);
 
-                const botBox = document.createElement('div');
-                botBox.classList.add('bot-box');
-                sidebar.appendChild(botBox);
-                for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of botMap.entries()) {
-                    if (playerIndex == botPlayerIndex) { //THIS MIGHT NOT WORK
-                        const botDiv = document.createElement('button');
-                        botDiv.classList.add('bot-info');
-                        botDiv.type = 'button';
-                        botDiv.dataset.botId = id;
-                        botDiv.title = `Focus bot #${id}`;
-                        botDiv.setAttribute('aria-label', `Focus ${NameMaps.mapName("variantMap", variant)} bot ${id} at ${position.x}, ${position.y}`);
-                        botDiv.addEventListener('click', () => focusMapOnPosition(position));
-                        const botImage = assetManager.getBotImage(variant, job, cargo) || assetManager.images.unknown;
-                        const variantName = NameMaps.mapName("variantMap", variant);
-                        const jobName = NameMaps.mapName("actionMap", job.action);
-                        botDiv.innerHTML = `
-                <div class="bot-card-header">
-                    <img class="bot-sidebar-icon" src="${botImage.src || './assets/unknown.jpg'}" alt="${escapeHTML(variantName)}" width="28" height="28">
-                    <div class="bot-title-group">
-                        <h4 class="bot-title">${escapeHTML(variantName)}</h4>
-                    </div>
-                </div>
-                <div class="bot-meta-row">
-                    <span>${position.x}, ${position.y}</span>
-                    <span>${escapeHTML(jobName)}</span>
-                </div>
-            `;
-                        botDiv.appendChild(createEnergyBar(current_energy));
-                        botDiv.appendChild(createCargoBar(cargo, variant));
-                        appendCargoChips(botDiv, cargo);
+                // This player's bots, with factory bots pinned to the left. The
+                // sort is stable, so within each group the natural botMap order is
+                // kept.
+                const playerBots = [...botMap.entries()].filter(([, entry]) => entry[5] === playerIndex);
+                playerBots.sort(([, a], [, b]) =>
+                    (b[1] === 'kFactoryBot' ? 1 : 0) - (a[1] === 'kFactoryBot' ? 1 : 0));
 
-                        // Append the botDiv to the sidebar
-                        botBox.appendChild(botDiv);
+                const seenIds = new Set();
+                let slot = 0;
+                for (const [id, [position, variant, current_energy, job, cargo, botPlayerIndex]] of playerBots) {
+                    const key = String(id);
+                    seenIds.add(key);
+
+                    let card = existingCards.get(key);
+                    if (card) {
+                        renderBotCard(card, id, position, variant, current_energy, job, cargo);
+                    } else {
+                        card = createBotCard(id, position, variant, current_energy, job, cargo);
                     }
+                    // Move the card into its correct slot only if it isn't already there.
+                    if (botBox.children[slot] !== card) {
+                        botBox.insertBefore(card, botBox.children[slot] || null);
+                    }
+                    slot++;
+                }
+
+                // Drop cards for bots that are no longer this player's.
+                for (const [key, card] of existingCards) {
+                    if (!seenIds.has(key)) card.remove();
                 }
             }
 

@@ -1,0 +1,80 @@
+/* Sidebar layout overrides (plain CSS, loaded after the Tailwind build so it
+   survives `npm run build:css`).
+   - Right player panel is width-adjustable via a drag handle (--sidebar-width).
+   - Each team's bots sit on a single row that scrolls horizontally. */
+
+:root {
+  /* Default right-panel width; overridden live by the resize handle. */
+  --sidebar-width: 24rem;
+}
+
+/* Map column flexes to fill whatever the sidebar leaves; sidebar width is the
+   draggable variable. (Overrides Tailwind's fixed grid-cols-[100vh_…].) */
+.app-shell {
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-width);
+}
+
+/* The map pane / viewport were pinned to a fixed 100vh square; let them fill the
+   (now flexible) map column instead. The fit logic keys off the smaller of
+   width/height, so the square map still fits and re-centres on resize. */
+.map-pane,
+.map-viewport {
+  width: 100%;
+}
+
+/* Drag handle on the sidebar's left edge. */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  bottom: 0;
+  width: 6px;
+  z-index: 950;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+}
+
+.sidebar-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  background: rgba(148, 163, 184, 0.4); /* slate-400 */
+  transition: background-color 0.12s ease;
+}
+
+.sidebar-resizer:hover::before,
+.sidebar-resizer.dragging::before {
+  background: #38bdf8; /* sky-400 */
+}
+
+/* Each team occupies a single horizontal row of bots; overflow scrolls sideways
+   instead of wrapping onto new rows. (Overrides the auto-fill grid.) */
+.bot-box {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: stretch;
+  gap: 0.25rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
+}
+
+.bot-box::-webkit-scrollbar {
+  height: 6px;
+}
+
+.bot-box::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6);
+  border-radius: 3px;
+}
+
+/* Fixed-width cards so the row overflows (and scrolls) rather than squashing. */
+.bot-box .bot-info {
+  flex: 0 0 7.5rem;
+}
