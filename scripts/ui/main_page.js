@@ -1,6 +1,5 @@
 import KeyboardUtilities from "/scripts/utilities/keyboard_utilities.js";
 import CompetitionManager from "/scripts/ui/competition_mode.js";
-import SettingsManager from "/scripts/settings.js";
 
 function setMnemonic(element, useSecondary, key, additionalKey) {
   if (!element) return;
@@ -47,10 +46,6 @@ document.getElementById("fullscreen-button")?.addEventListener("click", () => {
   CompetitionManager.toggleFullscreen();
 });
 
-document.getElementById("settings-button")?.addEventListener("click", () => {
-  SettingsManager.open_popup();
-});
-
 document.getElementById("auto-refresh-button")?.addEventListener("click", () => {
   localStorage.setItem("miningbots.autoRefreshNextGame", String(!autoRefreshEnabled()));
   updateAutoRefreshButton();
@@ -62,4 +57,3 @@ setMnemonic(document.getElementById("settings-button"), true, "C");
 setMnemonic(document.getElementById("fullscreen-button"), false, "F");
 setMnemonic(document.getElementById("auto-refresh-button"), false, "R");
 updateAutoRefreshButton();
-SettingsManager.initialize_main();
