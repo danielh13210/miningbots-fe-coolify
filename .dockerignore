@@ -12,5 +12,6 @@ node_modules
 styles/tailwind.css
 browsersettings.conf*
 init*.*
+scripts/no-cache-http-server.py
 README.md
 AGENTS.md
