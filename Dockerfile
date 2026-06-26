@@ -13,7 +13,7 @@ RUN mkdir -p ./styles && \
     # add two newlines
     echo -en "\n\n" >> /conf/httpd.conf && \
    rm -rf ./apache-docker-config && \
-    for dir in $(find . -name .htaccess -exec dirname {} \;); do echo "<Directory \"$dir\">" && cat "$dir/.htaccess" && rm "$dir/.htaccess" && echo -e "</Directory>\n" && rm -rf "$dir/.htaccess"; done >> /conf/httpd.conf && \
+    for dir in $(find . -name .htaccess -exec dirname {} \;); do htdocs_final=$(echo "$dir" | sed 's/^\./\/usr\/local\/apache2\/htdocs/g') && echo "<Directory \"$htdocs_final\">" && cat "$dir/.htaccess" && rm "$dir/.htaccess" && echo -e "</Directory>\n" && rm -rf "$dir/.htaccess"; done >> /conf/httpd.conf && \
     rm -rf Dockerfile node_modules src tailwind.config.js package.json package-lock.json
 
 # Use the official Apache HTTPD image
