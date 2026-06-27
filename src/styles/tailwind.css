@@ -477,7 +477,7 @@
   }
 
   .dialog-xbutton {
-    @apply relative -top-1 text-sm font-bold leading-none text-white;
+    @apply relative text-sm font-bold leading-none text-white;
   }
 
   .dialog-close {
