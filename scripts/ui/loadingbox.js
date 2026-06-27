@@ -9,21 +9,23 @@ let LoadingBox = {
         MISSING_QUERY_PARAMS: 6
     }
 }
+
 if (!document.querySelector('link[href="/styles/tailwind.css"]')) {
     const stylesheet = document.createElement("link");
     stylesheet.rel = "stylesheet";
     stylesheet.href = "/styles/tailwind.css";
     document.head.appendChild(stylesheet);
 }
-let LB_OBJECT_=document.createElement("div");
+let LB_OBJECT_=document.createElement("span");
 LB_OBJECT_.id="loadingbox";
-document.body.appendChild(LB_OBJECT_);
+LB_OBJECT_.classList.add("flex");
+document.querySelector(".sidebar-chrome").appendChild(LB_OBJECT_);
 LoadingBox.setStatus=function(status) {
     switch (status) {
         case LoadingBox.Status.LOADING_COMPLETED:
         case LoadingBox.Status.SERVER_NO_SELECTION:
-            LB_OBJECT_.classList.add("loading-completed");
-            LB_OBJECT_.textContent="";
+            LB_OBJECT_.classList.add("hidden");
+            LB_OBJECT_.classList.remove("flex");
             break;
 
         case LoadingBox.Status.LOADING:
@@ -40,8 +42,8 @@ LoadingBox.setStatus=function(status) {
             break;
 
         case LoadingBox.Status.NO_GAME:
-            LB_OBJECT_.textContent = "No active games are available on the server";
-            LB_OBJECT_.classList.remove("loading-completed");
+            LB_OBJECT_.innerHTML = "No active games are available on the server";
+            LB_OBJECT_.classList.remove("hidden");
             break;
         case LoadingBox.Status.MISSING_QUERY_PARAMS:
             LB_OBJECT_.innerHTML = "Required query parameters are missing, please set them as in the&nbsp;<a href=\"https://github.com/danielh13210/miningbots-fe-coolify/wiki/Query-parameters\" target=\"_blank\">wiki</a>";
