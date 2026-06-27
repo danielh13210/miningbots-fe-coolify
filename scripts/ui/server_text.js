@@ -1,6 +1,6 @@
 function setServerName(name){
     let link=document.getElementById("serverMenuButton")
-    link.textContent=`Server: ${name}`;
+    link.title=link.textContent=`Server: ${name}`; // should become tooltip too to avoid clipping text
     link.ariaLabel="Server";
     link.ariaDescription=name;
 }
