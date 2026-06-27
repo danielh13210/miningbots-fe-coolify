@@ -65,6 +65,10 @@ else {
     socket_obtained(config.get('url'));
 }
 
+setupStartGameControl();
+setupSidebarResizer();
+setupBotRowWheelScroll();
+
 // Player Name fetch code
 async function fetchPlayerNames(gameId, playerIds) {
     const url = `${http_type}://${hostname}:${port}/players`;
@@ -1486,9 +1490,6 @@ function drawGame(hostname, port) {
         });
 }
 function main(){
-    setupStartGameControl();
-    setupSidebarResizer();
-    setupBotRowWheelScroll();
     LoadingBox.setStatus(LoadingBox.Status.LOADING);
     setServerName(config.get("instance_name") || hostname);
     if (hostname !== null) {
