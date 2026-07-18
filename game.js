@@ -185,7 +185,7 @@ function hideStartGameControl() {
 async function startGame(gameId) {
     const request = encodeURIComponent(JSON.stringify({
         game_id: gameId,
-        observer_key: CONFIG_.observer_key,
+        observer_key: Number(config.get("observer_key")),
     }));
     const response = await fetch(`${http_type}://${hostname}:${port}/start_game?request=${request}`, { method: 'POST' });
     let body;
