@@ -1547,7 +1547,10 @@ function drawGame(hostname, port) {
             }
 
             function cleanupNote(note) {
-                return DOMPurify.sanitize(note).trim();
+                return DOMPurify.sanitize(note, {
+                            ALLOWED_TAGS:['h1', 'h2', 'h3', 'h4', 'h5', 'h6','p','b','i','em','strong','br'],
+                            ALLOWED_ATTR:['src','id','class','style']
+                       }).trim();
             }
 
             //shows a row for each player showing each bot and their data
