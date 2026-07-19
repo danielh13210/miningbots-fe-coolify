@@ -830,6 +830,7 @@ function drawGame(hostname, port) {
             // initialized first to avoid a temporal-dead-zone ReferenceError.
             const botMap = new Map();
             const jobMap = new Map();
+            const notes = new Map();
             const disruptEffects = [];
             const players = {};
             const playerNames = {};
@@ -880,6 +881,9 @@ function drawGame(hostname, port) {
                                 // start the elapsed-time clock from here.
                                 if (!hasObservedTick) gameTimer.start();
                                 hasObservedTick = true;
+                                if (data.player_note !== undefined) {
+                                    notes.set(data.player_id,data.player_note);
+                                }
                                 renderGameStatus(selectedGameInfo, map_config, hasObservedTick);
                                 if (Array.isArray(data.bot_updates)) {
                                     data.bot_updates.forEach(botUpdate => {
@@ -1542,6 +1546,10 @@ function drawGame(hostname, port) {
                 updateCargoChips(botDiv.querySelector('.cargo-grid'), cargo);
             }
 
+            function cleanupNote(note) {
+                return DOMPurify.sanitize(note).trim();
+            }
+
             //shows a row for each player showing each bot and their data
             async function updateUI(player_id) {
                 const playerIndex = ensurePlayer(player_id);
@@ -1608,8 +1616,20 @@ function drawGame(hostname, port) {
                 for (const [key, card] of existingCards) {
                     if (!seenIds.has(key)) card.remove();
                 }
-            }
 
+                let note_tag=sidebar.querySelector('.player-note');
+                let note=cleanupNote(notes.get(player_id) ?? "");
+                if(note=="")note="<br>";
+                if (note_tag){
+                    if(note_tag.innerHTML!=note)
+                        note_tag.innerHTML=note;
+                } else {
+                    let note_tag=document.createElement("p");
+                    note_tag.classList.add('player-note');
+                    note_tag.innerHTML=note;
+                    sidebar.appendChild(note_tag);
+                }
+            }
 
         })
         .catch((error) => {
