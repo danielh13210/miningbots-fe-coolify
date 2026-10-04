@@ -1,4 +1,5 @@
 .vscode/
 .cache/
 node_modules/
+styles/tailwind.css
 docker-compose.override.yml
