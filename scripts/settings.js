@@ -131,8 +131,7 @@ SettingsManager.ClickHandlers = {
 }
 
 SettingsManager.is_value_forced=function(setting){
-    //HACK: use eval to defer parsing
-    return (setting.force_value!=null) && eval(`typeof setting.force_value.value != "undefined"`);
+    return (setting.force_value!=null) && typeof setting.force_value.value != "undefined";
 }
 
 SettingsManager.read_settings_cookie=function(raw) {
