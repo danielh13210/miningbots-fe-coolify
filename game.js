@@ -458,6 +458,9 @@ function drawGame(hostname, port) {
                 throw new GameUnvailableError('No games available');
             }
             let gameId = selectedGame.game_id;
+            if(!Number.isInteger(gameId)){
+              throw new Error("game ID not an integer");
+            }
             let gameStatus = selectedGame.game_status;
             renderGameStatus(selectedGame);
             if (gameStatus == 'kEnded') {
