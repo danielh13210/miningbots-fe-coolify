@@ -18,7 +18,12 @@ let SocketUtilities = {
             url=`http://${url}`;
         if(url.endsWith(':'))
             throw new Error("Port missing after :");
-        let brokenUpSocket=new URL(url);
+        let brokenUpSocket;
+        try {
+          brokenUpSocket=new URL(url);
+        } catch(e) {
+          throw new Error("Failed to parse URL");
+        }
         if(brokenUpSocket.pathname!="/" || url.endsWith('/'))
             throw new Error("Path name not allowed");
         return brokenUpSocket;
