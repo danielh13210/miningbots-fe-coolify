@@ -17,17 +17,6 @@ let SettingsManager={
                         ? {value:true,tooltip:"Site opened via HTTPS. HTTPS sites can only connect to TLS secured servers."}
                         : null
         },
-        "game_port": {
-            type:"number",
-            default:9001,
-            title:"Game Port number",
-            description:"Port number used when connecting to the &quot;Staging&quot;, &quot;Main Game&quot;, &quot;Game&quot; servers",
-            range: {
-                minimum:1,
-                maximum:65535
-            },
-            force_value:null
-        },
         "localhost_port": {
             type:"number",
             default:9003,

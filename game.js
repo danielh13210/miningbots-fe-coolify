@@ -48,7 +48,6 @@ function set_protocols(upgrade_connection){
 
 //Dictionary of servers and respective names, urls
 var servers = in_private_scope(()=>{
-  let gport=CONFIG_.game_port;
   let lport=CONFIG_.localhost_port;
   let servers = {
     "shared-server": {
